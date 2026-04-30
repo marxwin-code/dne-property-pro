@@ -93,13 +93,31 @@ export default function ComparePage() {
         </form>
 
         {showReport && (
-          <div className="mx-auto mt-8 max-w-xl rounded-xl bg-brand-50 p-6 text-left">
-            <h2 className="text-lg font-semibold text-brand-700">Your Report</h2>
-            <ul className="mt-3 space-y-2 text-slate-700">
-              <li>Income Rank: Top 35%</li>
-              <li>Wealth Rank: Top 30%</li>
-              <li>Life Score: 74/100</li>
-            </ul>
+          <div className="mx-auto mt-8 max-w-xl space-y-5">
+            <div className="rounded-xl bg-brand-50 p-6 text-center">
+              <h2 className="text-lg font-semibold text-brand-700">Your Report</h2>
+              <p className="mt-3 whitespace-pre-line text-slate-700">
+                {"You are ahead of most people.\n\nBut you are not in the top 10%.\n\nWithout a clear strategy,\nyou are likely to stay in this position for years."}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-brand-200 bg-gradient-to-b from-white to-brand-50 p-6 text-center shadow-md">
+              <p className="inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                Premium Upgrade
+              </p>
+              <h3 className="mt-4 text-2xl font-bold text-slate-900">
+                Unlock Your Path to the Top 10%
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                See exactly what steps you need to take to move into the top 10%.
+              </p>
+              <button
+                type="button"
+                className="mt-6 rounded-xl bg-brand-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition hover:bg-brand-700"
+              >
+                Unlock Full Report – $9.99/month
+              </button>
+            </div>
           </div>
         )}
       </section>
