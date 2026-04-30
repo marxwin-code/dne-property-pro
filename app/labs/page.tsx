@@ -14,6 +14,13 @@ const products = [
     button: "Coming Soon",
     href: "#",
     active: false
+  },
+  {
+    name: "Financial Personality AI",
+    description: "Discover your money personality and behavioral patterns.",
+    button: "Take Test",
+    href: "/personality",
+    active: true
   }
 ];
 
