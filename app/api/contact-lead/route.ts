@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { RESEND_FROM } from "@/lib/resend-from";
 
 export const runtime = "nodejs";
+
+/** Must match a verified sender in Resend (domain DNS). */
+const CONTACT_FROM = "info@depropertypro.com";
 
 type Body = {
   fullName?: string;
@@ -22,38 +24,64 @@ export async function POST(req: Request) {
       );
     }
 
+    const name = body.fullName.trim();
+    const email = body.email.trim();
+    const phone = body.phone.trim();
+    const propertyType = (body.propertyType ?? "").trim() || "—";
+    const message = (body.message ?? "").trim() || "—";
+
     const text = `New lead from website contact form
 
-Full Name: ${body.fullName}
-Email: ${body.email}
-Phone: ${body.phone}
-Property Type: ${body.propertyType ?? "—"}
-Message: ${body.message ?? "—"}`;
+name: ${name}
+email: ${email}
+phone: ${phone}
+property type: ${propertyType}
+message: ${message}`;
 
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({
-        success: false,
-        message: "Email is not configured (missing RESEND_API_KEY)."
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Server misconfiguration: RESEND_API_KEY is not set."
+        },
+        { status: 503 }
+      );
     }
 
     try {
       const resend = new Resend(apiKey);
-      await resend.emails.send({
-        from: RESEND_FROM,
+      const { data, error } = await resend.emails.send({
+        from: CONTACT_FROM,
         to: "info@depropertypro.com",
-        replyTo: body.email,
+        replyTo: email,
         subject: "New Lead from Website",
         text
       });
-      return NextResponse.json({ success: true });
+
+      if (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: error.message ?? "Resend rejected the send request."
+          },
+          { status: 502 }
+        );
+      }
+
+      if (!data?.id) {
+        return NextResponse.json(
+          { success: false, message: "Email send did not return a message id." },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
       return NextResponse.json(
         {
           success: false,
-          message: "Failed to send email.",
-          error: error instanceof Error ? error.message : "Unknown error"
+          message: error instanceof Error ? error.message : "Failed to send email."
         },
         { status: 502 }
       );
