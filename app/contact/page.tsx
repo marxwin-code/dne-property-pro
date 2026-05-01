@@ -5,6 +5,7 @@ import Link from "next/link";
 
 export default function ContactPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -16,6 +17,7 @@ export default function ContactPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("loading");
+    setErrorDetail(null);
     try {
       const res = await fetch("/api/contact-lead", {
         method: "POST",
@@ -28,11 +30,28 @@ export default function ContactPage() {
           message: form.message
         })
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+
+      let data: { success?: boolean; message?: string } = {};
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
         setStatus("error");
+        setErrorDetail("Invalid response from server.");
         return;
       }
+
+      if (!res.ok) {
+        setStatus("error");
+        setErrorDetail(data.message ?? `Request failed (${res.status}).`);
+        return;
+      }
+
+      if (data.success !== true) {
+        setStatus("error");
+        setErrorDetail(data.message ?? "The server did not confirm delivery.");
+        return;
+      }
+
       setStatus("success");
       setForm({
         fullName: "",
@@ -43,6 +62,7 @@ export default function ContactPage() {
       });
     } catch {
       setStatus("error");
+      setErrorDetail("Network error. Check your connection and try again.");
     }
   };
 
@@ -178,9 +198,17 @@ export default function ContactPage() {
               </p>
             ) : null}
             {status === "error" ? (
-              <p className="mt-4 text-sm font-medium text-rose-600">
-                Something went wrong. Please email info@depropertypro.com directly or try again.
-              </p>
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-800">
+                <p className="font-medium">Could not send your message.</p>
+                {errorDetail ? <p className="mt-1 text-rose-700">{errorDetail}</p> : null}
+                <p className="mt-2 text-rose-700">
+                  You can also email{" "}
+                  <a href="mailto:info@depropertypro.com" className="font-semibold underline">
+                    info@depropertypro.com
+                  </a>{" "}
+                  directly.
+                </p>
+              </div>
             ) : null}
           </div>
         </div>
