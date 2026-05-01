@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ More detailed strategy is coming.`;
     try {
       const resend = new Resend(apiKey);
       await resend.emails.send({
-        from: "onboarding@resend.dev",
+        from: RESEND_FROM,
         to: email,
         subject: "Your Financial Report",
         text: report
