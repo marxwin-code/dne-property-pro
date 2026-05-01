@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FormEvent, useState } from "react";
 
 const products = [
   {
@@ -43,6 +44,19 @@ const products = [
 ];
 
 export default function LabsPage() {
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [leadType, setLeadType] = useState<"Book a Demo" | "Get a Quote">("Book a Demo");
+  const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">(
+    "idle"
+  );
+  const [leadForm, setLeadForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    propertyType: "Residential",
+    message: ""
+  });
+
   const handleRequestDemo = () => {
     const el = document.getElementById("contact");
     if (el) {
@@ -50,6 +64,35 @@ export default function LabsPage() {
       return;
     }
     window.location.href = "/contact";
+  };
+
+  const openLeadModal = (type: "Book a Demo" | "Get a Quote") => {
+    setLeadType(type);
+    setSubmitState("idle");
+    setShowLeadModal(true);
+  };
+
+  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitState("loading");
+    try {
+      const response = await fetch("/api/send-demo-lead", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...leadForm,
+          requestType: leadType
+        })
+      });
+      if (!response.ok) {
+        throw new Error("Failed to submit form");
+      }
+      setSubmitState("success");
+    } catch {
+      setSubmitState("error");
+    }
   };
 
   return (
@@ -110,7 +153,10 @@ export default function LabsPage() {
         ))}
       </section>
 
-      <section id="interactive-360-demo" className="mx-auto mt-14 max-w-[1200px] rounded-3xl border border-slate-200 bg-white/80 py-20 text-left shadow-sm backdrop-blur">
+      <section
+        id="interactive-360-demo"
+        className="mx-auto mt-14 max-w-[1200px] rounded-3xl border border-blue-200 bg-gradient-to-br from-indigo-100 via-blue-100 to-purple-100 py-20 text-left shadow-sm"
+      >
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             AI Interactive 360° Shop
@@ -121,13 +167,15 @@ export default function LabsPage() {
           </p>
         </div>
 
-        <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+        <div className="mt-10 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl">
           <iframe
             title="AI Interactive 360° Shop — Kuula virtual tour"
-            src="https://kuula.co/share/7ZVMR?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1"
-            className="h-[420px] w-full md:h-[560px]"
+            src="https://kuula.co/share/7ZVMR?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1&alpha=0&autoplay=1"
+            className="relative z-10 h-[600px] w-full rounded-2xl border-0 bg-white pointer-events-auto"
             allowFullScreen
             loading="lazy"
+            scrolling="no"
+            allow="xr-spatial-tracking; gyroscope; accelerometer; fullscreen"
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
@@ -178,7 +226,21 @@ export default function LabsPage() {
           </ul>
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => openLeadModal("Book a Demo")}
+            className="inline-flex rounded-xl bg-brand-600 px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+          >
+            Book a Demo
+          </button>
+          <button
+            type="button"
+            onClick={() => openLeadModal("Get a Quote")}
+            className="inline-flex rounded-xl border border-brand-600 bg-white px-8 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-blue-50"
+          >
+            Get a Quote
+          </button>
           <button
             type="button"
             onClick={handleRequestDemo}
@@ -189,6 +251,90 @@ export default function LabsPage() {
         </div>
       </section>
       </div>
+
+      {showLeadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <h3 className="text-2xl font-semibold text-slate-900">{leadType}</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Fill in your details and we will contact you within 24 hours.
+            </p>
+            <form className="mt-5 grid gap-4" onSubmit={handleLeadSubmit}>
+              <input
+                required
+                type="text"
+                placeholder="Name"
+                value={leadForm.name}
+                onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <input
+                required
+                type="email"
+                placeholder="Email"
+                value={leadForm.email}
+                onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <input
+                required
+                type="tel"
+                placeholder="Phone"
+                value={leadForm.phone}
+                onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <select
+                value={leadForm.propertyType}
+                onChange={(e) => setLeadForm({ ...leadForm, propertyType: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+              >
+                <option>Residential</option>
+                <option>Commercial</option>
+                <option>Retail</option>
+                <option>Industrial</option>
+                <option>Other</option>
+              </select>
+              <textarea
+                placeholder="Message"
+                rows={4}
+                value={leadForm.message}
+                onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <div className="mt-1 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeadModal(false);
+                    setSubmitState("idle");
+                  }}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitState === "loading"}
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitState === "loading" ? "Submitting..." : "Submit"}
+                </button>
+              </div>
+            </form>
+            {submitState === "success" && (
+              <p className="mt-4 text-sm font-medium text-emerald-600">
+                Thanks, we will contact you within 24 hours.
+              </p>
+            )}
+            {submitState === "error" && (
+              <p className="mt-4 text-sm font-medium text-rose-600">
+                Submission failed. Please try again.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
