@@ -3,13 +3,15 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 
+const fieldClass =
+  "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:shadow-[0_0_0_3px_rgba(37,99,235,0.15)]";
+
 export default function ContactPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [form, setForm] = useState({
-    fullName: "",
+    name: "",
     email: "",
-    phone: "",
     propertyType: "Residential",
     message: ""
   });
@@ -23,9 +25,8 @@ export default function ContactPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: form.fullName,
+          fullName: form.name,
           email: form.email,
-          phone: form.phone,
           propertyType: form.propertyType,
           message: form.message
         })
@@ -54,9 +55,8 @@ export default function ContactPage() {
 
       setStatus("success");
       setForm({
-        fullName: "",
+        name: "",
         email: "",
-        phone: "",
         propertyType: "Residential",
         message: ""
       });
@@ -67,8 +67,8 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="w-full bg-gradient-to-b from-lux-paper via-[#ebe6de] to-lux-paper-deep">
-      <section className="border-b border-stone-300/40 bg-gradient-to-br from-lux-ink via-[#141c30] to-lux-surface px-4 py-20 text-center text-white sm:py-24">
+    <main className="w-full bg-gradient-to-b from-slate-100 via-slate-200/90 to-slate-100">
+      <section className="border-b border-slate-300/50 bg-gradient-to-br from-lux-ink via-[#141c30] to-lux-surface px-4 py-20 text-center text-white sm:py-24">
         <div className="mx-auto max-w-3xl space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-lux-gold">Contact</p>
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Contact Us</h1>
@@ -79,60 +79,62 @@ export default function ContactPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-20 sm:py-24">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-          <aside className="space-y-8 rounded-2xl border border-stone-400/30 bg-white/75 p-8 shadow-[0_20px_40px_-28px_rgba(12,18,34,0.25)] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5">
-            <h2 className="text-lg font-semibold text-lux-ink">Reach us directly</h2>
-            <dl className="space-y-4 text-sm text-slate-600">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+          <aside className="flex flex-col justify-between space-y-8 rounded-3xl border border-slate-200/80 bg-white p-8 shadow-[0_24px_48px_-20px_rgba(15,23,42,0.18)] lg:min-h-[520px]">
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-lux-ink">Reach us directly</h2>
+              <p className="text-sm leading-relaxed text-slate-600">
+                For business inquiries, partnerships, or property consulting, feel free to reach out
+                via email or the form.
+              </p>
               <div>
-                <dt className="font-semibold text-lux-ink">Email</dt>
-                <dd className="mt-1">
-                  <a
-                    href="mailto:info@depropertypro.com"
-                    className="text-brand-600 underline-offset-4 hover:underline"
-                  >
-                    info@depropertypro.com
-                  </a>
-                </dd>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Business Contact
+                </p>
+                <a
+                  href="mailto:info@depropertypro.com"
+                  className="mt-2 inline-block text-lg font-medium text-brand-600 underline-offset-4 transition hover:text-brand-700 hover:underline"
+                >
+                  info@depropertypro.com
+                </a>
               </div>
-              <div>
-                <dt className="font-semibold text-lux-ink">Phone</dt>
-                <dd className="mt-1 text-slate-500">— add your number when ready</dd>
-              </div>
-            </dl>
-            <p className="rounded-xl border border-stone-200/80 bg-stone-50/80 px-4 py-3 text-sm text-slate-600">
-              We usually respond within 24 hours.
-            </p>
-            <Link
-              href="/#interactive-360-home"
-              className="inline-flex text-sm font-semibold text-brand-600 hover:text-brand-700"
-            >
-              ← Back to 360° demo
-            </Link>
+            </div>
+            <div className="space-y-6">
+              <p className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">
+                We usually respond within 24 hours.
+              </p>
+              <Link
+                href="/#interactive-360-home"
+                className="inline-flex text-sm font-semibold text-brand-600 transition hover:text-brand-700"
+              >
+                ← Back to 360° demo
+              </Link>
+            </div>
           </aside>
 
-          <div className="rounded-2xl border border-stone-400/30 bg-white/85 p-8 shadow-[0_20px_40px_-28px_rgba(12,18,34,0.3)] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5">
-            <h2 className="text-lg font-semibold text-lux-ink">Send a message</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Complete the form — we&apos;ll email you at the address you provide.
+          <div className="rounded-3xl border border-slate-200/80 bg-white p-8 shadow-[0_28px_56px_-24px_rgba(15,23,42,0.22)] sm:p-10">
+            <h2 className="text-xl font-semibold text-lux-ink">Send an inquiry</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              A short note is enough — we&apos;ll reply by email.
             </p>
-            <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
+            <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="fullName" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Full Name
+                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Name
                 </label>
                 <input
-                  id="fullName"
+                  id="name"
                   required
                   type="text"
                   autoComplete="name"
-                  value={form.fullName}
-                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className={fieldClass}
                 />
               </div>
               <div>
                 <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Email Address
+                  Email
                 </label>
                 <input
                   id="email"
@@ -141,21 +143,7 @@ export default function ContactPage() {
                   autoComplete="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
-                />
-              </div>
-              <div>
-                <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Phone Number
-                </label>
-                <input
-                  id="phone"
-                  required
-                  type="tel"
-                  autoComplete="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+                  className={fieldClass}
                 />
               </div>
               <div>
@@ -166,7 +154,7 @@ export default function ContactPage() {
                   id="propertyType"
                   value={form.propertyType}
                   onChange={(e) => setForm({ ...form, propertyType: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+                  className={fieldClass}
                 >
                   <option value="Residential">Residential</option>
                   <option value="Commercial">Commercial</option>
@@ -181,25 +169,25 @@ export default function ContactPage() {
                   rows={5}
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-blue-200"
+                  className={fieldClass}
                 />
               </div>
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-brand-600 py-3.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-12"
+                className="mt-2 w-full rounded-2xl bg-gradient-to-r from-brand-600 via-blue-600 to-blue-700 py-4 text-sm font-semibold text-white shadow-lg shadow-blue-900/25 transition hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
               >
-                {status === "loading" ? "Sending…" : "Send Message"}
+                {status === "loading" ? "Sending…" : "Send Inquiry"}
               </button>
             </form>
             {status === "success" ? (
               <p className="mt-4 text-sm font-medium text-emerald-700">
-                Thanks — we received your message and will reply within 24 hours.
+                Thanks — we received your inquiry and will reply within 24 hours.
               </p>
             ) : null}
             {status === "error" ? (
-              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-800">
-                <p className="font-medium">Could not send your message.</p>
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-800">
+                <p className="font-medium">Could not send your inquiry.</p>
                 {errorDetail ? <p className="mt-1 text-rose-700">{errorDetail}</p> : null}
                 <p className="mt-2 text-rose-700">
                   You can also email{" "}
