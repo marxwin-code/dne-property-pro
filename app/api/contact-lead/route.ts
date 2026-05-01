@@ -9,7 +9,6 @@ const CONTACT_FROM = "info@depropertypro.com";
 type Body = {
   fullName?: string;
   email?: string;
-  phone?: string;
   propertyType?: string;
   message?: string;
 };
@@ -17,16 +16,15 @@ type Body = {
 export async function POST(req: Request) {
   try {
     const body: Body = await req.json();
-    if (!body.fullName || !body.email || !body.phone) {
+    if (!body.fullName?.trim() || !body.email?.trim()) {
       return NextResponse.json(
-        { success: false, message: "Name, email, and phone are required." },
+        { success: false, message: "Name and email are required." },
         { status: 400 }
       );
     }
 
     const name = body.fullName.trim();
     const email = body.email.trim();
-    const phone = body.phone.trim();
     const propertyType = (body.propertyType ?? "").trim() || "—";
     const message = (body.message ?? "").trim() || "—";
 
@@ -34,7 +32,6 @@ export async function POST(req: Request) {
 
 name: ${name}
 email: ${email}
-phone: ${phone}
 property type: ${propertyType}
 message: ${message}`;
 
