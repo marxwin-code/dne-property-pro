@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { RESEND_FROM } from "@/lib/resend-from";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ Message: ${body.message ?? "-"}`;
     try {
       const resend = new Resend(apiKey);
       await resend.emails.send({
-        from: "onboarding@resend.dev",
+        from: RESEND_FROM,
         to: "marxwin@gmail.com",
         subject: "New 360° Shop Lead",
         text: content

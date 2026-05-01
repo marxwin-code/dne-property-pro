@@ -69,10 +69,10 @@ export function Navbar() {
           </nav>
 
           <Link
-            href="/labs"
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-lux-gold/35 bg-lux-gold/10 px-5 py-2 text-xs font-semibold text-lux-gold transition hover:border-lux-gold/60 hover:bg-lux-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lux-gold/50 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-surface sm:text-sm"
+            href="/#interactive-360-home"
+            className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-blue-900/30 transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-surface sm:text-sm"
           >
-            Explore AI Tools
+            Start 360
           </Link>
         </div>
       </div>
