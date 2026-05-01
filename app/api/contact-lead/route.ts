@@ -4,7 +4,7 @@ import { Resend } from "resend";
 export const runtime = "nodejs";
 
 /** Must match a verified sender in Resend (domain DNS). */
-const CONTACT_FROM = "info@depropertypro.com";
+const CONTACT_FROM = "D&E Property Pro <info@mail.depropertypro.com>";
 
 type Body = {
   fullName?: string;
