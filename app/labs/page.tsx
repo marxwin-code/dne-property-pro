@@ -5,21 +5,22 @@ import { FormEvent, useState } from "react";
 
 const products = [
   {
+    name: "AI Interactive 360° Shop",
+    description:
+      "Let customers explore your space remotely with an immersive 360° experience, interactive hotspots, and video integration.",
+    button: "View Live Demo",
+    href: "#interactive-360-demo",
+    active: true,
+    tone: "featured",
+    featured: true
+  },
+  {
     name: "CompareMe AI",
     description: "Compare your income and financial position with others.",
     button: "Explore",
     href: "/compare",
     active: true,
     tone: "blue",
-    featured: false
-  },
-  {
-    name: "Invoice Extract AI",
-    description: "Automatically extract invoice data into Excel.",
-    button: "Coming Soon",
-    href: "#",
-    active: false,
-    tone: "slate",
     featured: false
   },
   {
@@ -32,14 +33,13 @@ const products = [
     featured: false
   },
   {
-    name: "AI Interactive 360° Shop",
-    description:
-      "Let customers explore your space remotely with an immersive 360° experience, interactive hotspots, and video integration.",
-    button: "View Live Demo",
-    href: "#interactive-360-demo",
-    active: true,
-    tone: "featured",
-    featured: true
+    name: "Invoice Extract AI",
+    description: "Automatically extract invoice data into Excel.",
+    button: "Coming Soon",
+    href: "#",
+    active: false,
+    tone: "slate",
+    featured: false
   }
 ];
 
@@ -96,27 +96,30 @@ export default function LabsPage() {
   };
 
   return (
-    <main className="bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100">
+    <main className="bg-gradient-to-b from-lux-paper via-[#e8e2d8] to-lux-paper-deep">
       <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:py-24">
       <section className="mx-auto max-w-3xl">
-        <h1 className="text-5xl font-bold tracking-tight text-slate-900 sm:text-6xl">
+        <p className="text-xs font-medium uppercase tracking-[0.25em] text-lux-gold-dim">
+          D&amp;E Labs
+        </p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-lux-ink sm:text-5xl">
           AI Tools That Generate Real Business Value
         </h1>
-        <p className="mt-4 text-lg text-slate-600">
+        <p className="mt-4 text-lg leading-relaxed text-slate-600">
           Explore powerful AI solutions designed for property and commercial use
         </p>
       </section>
 
-      <section className="mt-12 grid gap-6 sm:grid-cols-2">
+      <section className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7">
         {products.map((product) => (
-          <article key={product.name} className={`flex flex-col rounded-2xl border p-8 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${
+          <article key={product.name} className={`flex h-full min-h-[280px] flex-col rounded-2xl border p-8 text-left shadow-[0_20px_40px_-28px_rgba(12,18,34,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_28px_48px_-24px_rgba(12,18,34,0.4)] ${
               product.tone === "blue"
-                ? "border-blue-200 bg-blue-50/70"
+                ? "border-blue-200/80 bg-gradient-to-br from-white/90 to-blue-50/90"
                 : product.tone === "slate"
-                  ? "border-slate-200 bg-slate-100/80"
+                  ? "border-stone-300/60 bg-gradient-to-br from-stone-100/95 to-stone-200/60"
                   : product.tone === "purple"
-                    ? "border-purple-200 bg-purple-50/70"
-                    : "border-blue-300 bg-gradient-to-br from-blue-700 to-indigo-700 text-white shadow-lg sm:col-span-2"
+                    ? "border-purple-200/80 bg-gradient-to-br from-white/90 to-purple-50/90"
+                    : "border-lux-gold/30 bg-gradient-to-br from-[#1a2340] via-lux-surface to-lux-ink text-white shadow-lux"
             }`}>
             {product.featured && (
               <span className="mb-4 inline-flex w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
@@ -155,10 +158,10 @@ export default function LabsPage() {
 
       <section
         id="interactive-360-demo"
-        className="mx-auto mt-14 max-w-[1200px] rounded-3xl border border-blue-200 bg-gradient-to-br from-indigo-100 via-blue-100 to-purple-100 py-20 text-left shadow-sm"
+        className="mx-auto mt-14 max-w-[1200px] rounded-3xl border border-stone-400/30 bg-gradient-to-br from-white/80 via-stone-100/90 to-[#dfe6f5]/50 py-20 text-left shadow-[0_24px_48px_-28px_rgba(12,18,34,0.3)]"
       >
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-lux-ink sm:text-4xl">
             AI Interactive 360° Shop
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
