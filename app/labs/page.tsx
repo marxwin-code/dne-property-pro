@@ -170,7 +170,7 @@ export default function LabsPage() {
         <div className="mt-10 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl">
           <iframe
             title="AI Interactive 360° Shop — Kuula virtual tour"
-            src="https://kuula.co/share/7ZVMR?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1&alpha=0&autoplay=1"
+            src="https://kuula.co/share/collection/7lRH7?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1"
             className="relative z-10 h-[600px] w-full rounded-2xl border-0 bg-white pointer-events-auto"
             allowFullScreen
             loading="lazy"
