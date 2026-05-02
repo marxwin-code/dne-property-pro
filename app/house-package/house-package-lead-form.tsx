@@ -7,44 +7,66 @@ export function HousePackageLeadForm() {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("loading");
     setErrorDetail(null);
     try {
-      const res = await fetch("/api/contact-lead", {
+      const emailRes = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: name,
+          type: "house-package",
+          name,
           email,
-          propertyType: "House & Land Package — /house-package",
-          message:
-            "Requested full property report from House Package page (pricing breakdown & investment analysis)."
+          message
         })
       });
-      let data: { success?: boolean; message?: string } = {};
+      let emailData: { success?: boolean; message?: string } = {};
       try {
-        data = (await res.json()) as typeof data;
+        emailData = (await emailRes.json()) as typeof emailData;
       } catch {
         setStatus("error");
         setErrorDetail("Invalid response from server.");
         return;
       }
-      if (!res.ok) {
+      if (!emailRes.ok) {
         setStatus("error");
-        setErrorDetail(data.message ?? `Request failed (${res.status}).`);
+        setErrorDetail(emailData.message ?? `Request failed (${emailRes.status}).`);
         return;
       }
-      if (data.success !== true) {
+      if (emailData.success !== true) {
         setStatus("error");
-        setErrorDetail(data.message ?? "The server did not confirm delivery.");
+        setErrorDetail(emailData.message ?? "The server did not confirm delivery.");
+        return;
+      }
+
+      const saveLeadRes = await fetch("/api/save-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          age: null,
+          income: null,
+          savings: null,
+          propertyOwnership: "",
+          interestProperty: "Premium House & Land Package",
+          source: "House Package"
+        })
+      });
+      const saveLeadData = (await saveLeadRes.json()) as { success?: boolean; message?: string };
+      if (!saveLeadRes.ok || saveLeadData.success !== true) {
+        setStatus("error");
+        setErrorDetail(saveLeadData.message ?? "Failed to save your request.");
         return;
       }
       setStatus("success");
       setName("");
       setEmail("");
+      setMessage("");
     } catch {
       setStatus("error");
       setErrorDetail("Network error. Please try again.");
@@ -84,12 +106,28 @@ export function HousePackageLeadForm() {
           className={`${inputClass} mt-2`}
         />
       </div>
+      <div>
+        <label
+          htmlFor="hp-message"
+          className="block text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500"
+        >
+          Message
+        </label>
+        <textarea
+          id="hp-message"
+          rows={4}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className={`${inputClass} mt-2 resize-none`}
+          placeholder="Tell us what details you need most."
+        />
+      </div>
       <button
         type="submit"
         disabled={status === "loading"}
-        className="mt-2 w-full border border-[#0f172a] bg-[#0f172a] px-8 py-4 text-[11px] font-medium uppercase tracking-[0.25em] text-white transition hover:bg-[#1e293b] disabled:opacity-50"
+        className="mt-2 w-full rounded-xl bg-brand-600 px-8 py-4 text-[11px] font-semibold uppercase tracking-[0.25em] text-white shadow-lg shadow-blue-900/20 transition hover:bg-brand-700 disabled:opacity-50"
       >
-        {status === "loading" ? "Sending…" : "Request Full Report"}
+        {status === "loading" ? "Sending…" : "Get Full Package & Price Breakdown"}
       </button>
       {status === "success" ? (
         <p className="text-sm text-emerald-800">

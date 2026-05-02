@@ -56,10 +56,97 @@ export default function HomePage() {
               Start 360 Demo
             </Link>
             <Link
+              href="/house-package"
+              className="inline-flex w-full items-center justify-center rounded-full border border-lux-gold/55 bg-lux-gold/10 px-8 py-3.5 text-sm font-semibold text-lux-gold transition hover:border-lux-gold/80 hover:bg-lux-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lux-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-ink sm:w-auto"
+            >
+              View House Packages
+            </Link>
+            <Link
               href="/contact"
               className="inline-flex w-full items-center justify-center rounded-full border border-white/25 bg-white/5 px-8 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/40 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-ink sm:w-auto"
             >
               Get Free Quote
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Property entry — connect homepage flow to house package */}
+      <section className="border-t border-stone-300/40 bg-gradient-to-b from-[#f3efe8] to-lux-paper px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-lux-ink sm:text-4xl">
+              Explore Investment Opportunities
+            </h2>
+            <p className="mx-auto mt-3 max-w-3xl text-slate-600">
+              Discover curated house &amp; land packages in Melbourne&apos;s fastest-growing
+              areas.
+            </p>
+          </div>
+
+          <article className="mt-10 rounded-2xl border border-lux-gold/40 bg-white p-8 text-left shadow-[0_20px_40px_-26px_rgba(12,18,34,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_48px_-24px_rgba(12,18,34,0.42)] sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-lux-gold-dim">
+              Featured
+            </p>
+            <h3 className="mt-3 text-2xl font-semibold tracking-tight text-lux-ink sm:text-3xl">
+              Premium House &amp; Land Package
+            </h3>
+            <p className="mt-2 text-lg font-medium text-slate-800">From $620,000</p>
+            <p className="mt-2 text-sm text-slate-600">
+              High-growth suburb • Turnkey • Investor ready
+            </p>
+            <Link
+              href="/house-package"
+              className="mt-6 inline-flex rounded-full bg-lux-ink px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            >
+              View Property →
+            </Link>
+          </article>
+
+          <div className="mt-8 grid gap-6 sm:grid-cols-2">
+            <article className="rounded-2xl border border-stone-400/30 bg-white/85 p-7 text-left shadow-[0_20px_40px_-28px_rgba(12,18,34,0.35)] transition hover:-translate-y-1 hover:shadow-[0_28px_48px_-24px_rgba(12,18,34,0.45)]">
+              <h3 className="text-xl font-semibold tracking-tight text-lux-ink">
+                AI Interactive 360 Experience
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                Engage prospects with an immersive walkthrough that drives stronger intent before
+                inspection.
+              </p>
+              <Link
+                href="/#interactive-360-home"
+                className="mt-6 inline-flex rounded-full border border-lux-ink/20 bg-white px-5 py-2.5 text-sm font-semibold text-lux-ink transition hover:border-brand-600 hover:text-brand-700"
+              >
+                Explore 360
+              </Link>
+            </article>
+
+            <article className="rounded-2xl border border-lux-gold/40 bg-gradient-to-br from-white to-[#f6f1e4] p-7 text-left shadow-[0_20px_40px_-26px_rgba(12,18,34,0.35)] transition hover:-translate-y-1 hover:shadow-[0_28px_48px_-24px_rgba(12,18,34,0.45)]">
+              <p className="inline-flex rounded-full bg-lux-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-lux-gold-dim">
+                NEW
+              </p>
+              <h3 className="mt-3 text-xl font-semibold tracking-tight text-lux-ink">
+                House &amp; Land Investment Package
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                Review a premium package with location logic, lifestyle detail, and investment
+                framing.
+              </p>
+              <Link
+                href="/house-package"
+                className="mt-6 inline-flex rounded-full bg-lux-ink px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600"
+              >
+                View Package
+              </Link>
+            </article>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-stone-300/50 bg-white/80 p-6 text-center shadow-[0_16px_32px_-26px_rgba(12,18,34,0.35)]">
+            <p className="text-sm text-slate-700">Not sure what you can afford?</p>
+            <Link
+              href="/compare"
+              className="mt-3 inline-flex rounded-full bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              Run Compare AI
             </Link>
           </div>
         </div>

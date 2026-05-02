@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { Resend } from "resend";
 
 export const runtime = "nodejs";
 
@@ -14,6 +13,31 @@ type CompareBody = {
 
 function isPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function getAffordability(income: number): "Low" | "Medium" | "High" {
+  if (income < 60000) return "Low";
+  if (income <= 120000) return "Medium";
+  return "High";
+}
+
+function getReadinessScore({
+  income,
+  savings,
+  hasProperty,
+  age
+}: {
+  income: number;
+  savings: number;
+  hasProperty: "Yes" | "No";
+  age: number;
+}) {
+  let score = 25;
+  score += Math.min(35, Math.round(income / 5000));
+  score += Math.min(25, Math.round(savings / 4000));
+  if (hasProperty === "Yes") score += 8;
+  if (age >= 28 && age <= 50) score += 7;
+  return Math.max(1, Math.min(100, score));
 }
 
 export async function POST(req: Request) {
@@ -34,13 +58,12 @@ export async function POST(req: Request) {
     }
 
     const openAiKey = process.env.OPENAI_API_KEY;
-    const resendKey = process.env.RESEND_API_KEY;
 
-    if (!openAiKey || !resendKey) {
+    if (!openAiKey) {
       return NextResponse.json(
         {
           success: false,
-          message: "Server configuration missing OPENAI_API_KEY or RESEND_API_KEY."
+          message: "Server configuration missing OPENAI_API_KEY."
         },
         { status: 503 }
       );
@@ -75,44 +98,31 @@ Make it professional, clear, and persuasive.`;
       );
     }
 
-    const resend = new Resend(resendKey);
-    const fromAddress = "info@mail.depropertypro.com";
-
-    const userEmailResult = await resend.emails.send({
-      from: fromAddress,
-      to: body.email.trim(),
-      subject: "Your Property Readiness Report",
-      text: `Your Personal Property Report\n\n${report}`
+    const affordability = getAffordability(body.income);
+    const readinessScore = getReadinessScore({
+      income: body.income,
+      savings: body.savings,
+      hasProperty: body.hasProperty,
+      age: body.age
     });
 
-    if (userEmailResult.error || !userEmailResult.data?.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: userEmailResult.error?.message ?? "Failed to send report email."
-        },
-        { status: 502 }
-      );
-    }
+    const summary = `Based on your profile, your affordability level is ${affordability} with a property readiness score of ${readinessScore}/100.`;
+    const propertyInsight =
+      affordability === "Low"
+        ? "Focus on deposit growth and serviceability improvements before targeting larger packages."
+        : affordability === "Medium"
+          ? "You are positioned to evaluate quality house and land stock with careful borrowing structure."
+          : "You have strong capacity to pursue premium stock and optimize for long-term capital growth.";
 
-    const leadEmailResult = await resend.emails.send({
-      from: fromAddress,
-      to: "info@depropertypro.com",
-      subject: "New Compare AI Lead",
-      text: `Age: ${body.age}\nIncome: ${body.income}\nSavings: ${body.savings}\nProperty: ${body.hasProperty}\nEmail: ${body.email.trim()}`
+    return NextResponse.json({
+      success: true,
+      message: "Report generated",
+      report,
+      readinessScore,
+      affordability,
+      summary,
+      propertyInsight
     });
-
-    if (leadEmailResult.error || !leadEmailResult.data?.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: leadEmailResult.error?.message ?? "Lead capture email failed."
-        },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ success: true, message: "Report sent to your email" });
   } catch {
     return NextResponse.json(
       { success: false, message: "Something went wrong, please try again" },
