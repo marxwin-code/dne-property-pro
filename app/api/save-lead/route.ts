@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toAirtableLeadFields, type LeadBodyForAirtable } from "@/lib/airtable-lead-fields";
 import { withRetry } from "@/lib/retry";
 
 export const runtime = "nodejs";
@@ -25,8 +26,7 @@ function toNumberOrNull(value: unknown): number | null {
   return null;
 }
 
-/** Airtable field names — must match base columns (all lowercase). */
-function buildAirtableFields(body: SaveLeadBody): Record<string, string | number | null> {
+function buildCanonicalLead(body: SaveLeadBody): LeadBodyForAirtable {
   return {
     name: body.name?.trim() || "",
     email: body.email?.trim() || "",
@@ -57,8 +57,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const fields = buildAirtableFields(body);
+    const canonical = buildCanonicalLead(body);
+    const fields = toAirtableLeadFields(canonical);
     const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
+
+    console.log("[save-lead] Airtable field keys:", Object.keys(fields).join(", "));
 
     const data = await withRetry(
       async () => {
