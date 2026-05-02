@@ -8,6 +8,7 @@ const navItems = [
   { label: "About", href: "/about" },
   { label: "Services", href: "/services" },
   { label: "Projects", href: "/projects" },
+  { label: "Properties", href: "/house-package" },
   { label: "D&E Labs", href: "/labs" },
   { label: "Contact", href: "/contact" }
 ];
@@ -18,6 +19,7 @@ export function Navbar() {
     pathname.startsWith("/labs") ||
     pathname.startsWith("/compare") ||
     pathname.startsWith("/personality");
+  const propertiesActive = pathname === "/house-package" || pathname.startsWith("/house-package/");
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-lux-surface/95 shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
@@ -41,6 +43,8 @@ export function Navbar() {
                 const active =
                   item.href === "/"
                     ? pathname === "/"
+                    : item.href === "/house-package"
+                      ? propertiesActive
                     : item.href === "/labs"
                       ? labsSectionActive
                       : pathname === item.href || pathname.startsWith(`${item.href}/`);

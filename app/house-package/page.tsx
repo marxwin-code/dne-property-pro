@@ -42,12 +42,12 @@ const gallery = [
 ] as const;
 
 const keyStats = [
-  { label: "Price", value: "From $XXX,XXX", note: "Package price guide" },
+  { label: "Price", value: "From $620,000", note: "Package price guide" },
   { label: "Location", value: "Melbourne", note: "High-growth corridor" },
   { label: "Bedrooms", value: "4", note: "Generous accommodation" },
   { label: "Bathrooms", value: "2", note: "Including ensuite" },
   { label: "Garage", value: "2", note: "Secure parking" },
-  { label: "Land Size", value: "~XXX m²", note: "Subject to lot" }
+  { label: "Land Size", value: "300–400 m²", note: "Subject to lot" }
 ] as const;
 
 const lifestyle = [
@@ -189,6 +189,31 @@ export default function HousePackagePage() {
       </section>
 
       {/* 4. Lifestyle */}
+      <section className="border-t border-slate-200/80 bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-28">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-3xl font-light tracking-tight sm:text-4xl">Investment Snapshot</h2>
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-[#f8f9fa] p-6 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.25)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Price</p>
+              <p className="mt-3 text-xl font-medium">$620k–$680k</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-[#f8f9fa] p-6 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.25)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Rental Yield</p>
+              <p className="mt-3 text-xl font-medium">4–5%</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-[#f8f9fa] p-6 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.25)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Land Size</p>
+              <p className="mt-3 text-xl font-medium">300–400 sqm</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-[#f8f9fa] p-6 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.25)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Configuration</p>
+              <p className="mt-3 text-xl font-medium">4 bed / 2 bath / 2 car</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Lifestyle */}
       <section className="border-t border-slate-200/80 bg-[#f8f9fa] px-6 py-20 sm:px-12 lg:px-20 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-3xl font-light tracking-tight sm:text-4xl">Designed for Your Lifestyle</h2>
@@ -249,6 +274,25 @@ export default function HousePackagePage() {
         </div>
       </section>
 
+      <section className="border-t border-slate-200/80 bg-white px-6 py-20 sm:px-12 lg:px-20 lg:py-24">
+        <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 rounded-2xl border border-slate-200 bg-[#f8f9fa] p-8 sm:flex-row sm:items-center sm:p-10">
+          <div>
+            <h2 className="text-2xl font-light tracking-tight sm:text-3xl">
+              Not sure if this property suits you?
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Run Compare AI to get a quick readiness view before requesting the full package.
+            </p>
+          </div>
+          <Link
+            href="/compare"
+            className="inline-flex items-center justify-center border border-[#0f172a] px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-[#0f172a] transition hover:bg-[#0f172a] hover:text-white"
+          >
+            Run Compare AI
+          </Link>
+        </div>
+      </section>
+
       {/* 7. Lead Capture */}
       <section id="lead" className="scroll-mt-24 border-t border-slate-200/80 bg-[#f8f9fa] px-6 py-20 sm:px-12 lg:px-20 lg:py-28">
         <div className="mx-auto grid max-w-6xl gap-16 lg:grid-cols-2 lg:items-start lg:gap-24">
@@ -270,6 +314,23 @@ export default function HousePackagePage() {
           </div>
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-6xl gap-3">
+          <Link
+            href="#lead"
+            className="inline-flex flex-1 items-center justify-center rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:bg-brand-700"
+          >
+            Get Full Package
+          </Link>
+          <Link
+            href="/compare"
+            className="inline-flex flex-1 items-center justify-center rounded-xl border border-[#0f172a]/20 bg-white px-5 py-3 text-sm font-semibold text-[#0f172a] shadow-lg transition hover:bg-slate-50"
+          >
+            Run Compare AI
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }
