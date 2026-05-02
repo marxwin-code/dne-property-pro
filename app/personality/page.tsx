@@ -2,124 +2,14 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { useSiteText } from "@/lib/i18n/use-site-text";
+import { fillTemplate } from "@/lib/i18n/fill-template";
 
 type Option = "A" | "B" | "C" | "D";
 type Stage = "landing" | "quiz" | "result";
 
-type Question = {
-  text: string;
-  options: { key: Option; label: string }[];
-};
-
-type ResultProfile = {
-  title: string;
-  description: string;
-  image: string;
-};
-
-const questions: Question[] = [
-  {
-    text: "When you get unexpected extra income, what do you usually do first?",
-    options: [
-      { key: "A", label: "Move it into savings or long-term planning." },
-      { key: "B", label: "Use part for growth and part for reserves." },
-      { key: "C", label: "Spend it on lifestyle upgrades or experiences." },
-      { key: "D", label: "Leave it in the account and decide later." }
-    ]
-  },
-  {
-    text: "How would you describe your financial decision style?",
-    options: [
-      { key: "A", label: "Systematic, planned, and risk-controlled." },
-      { key: "B", label: "Calculated, flexible, and growth-oriented." },
-      { key: "C", label: "Emotion-led and short-term focused." },
-      { key: "D", label: "Reactive, depending on current pressure." }
-    ]
-  },
-  {
-    text: "How do you normally manage monthly budgeting?",
-    options: [
-      { key: "A", label: "I run a clear, tracked budget each month." },
-      { key: "B", label: "I track trends and adjust as opportunities change." },
-      { key: "C", label: "I spend first and review later if needed." },
-      { key: "D", label: "I do not follow a stable budget structure." }
-    ]
-  },
-  {
-    text: "How do you approach investing or wealth building?",
-    options: [
-      { key: "A", label: "Steady, low-volatility, and long-term." },
-      { key: "B", label: "Strategic, selective, and growth-driven." },
-      { key: "C", label: "Only when I feel highly motivated." },
-      { key: "D", label: "I have not built a clear approach yet." }
-    ]
-  },
-  {
-    text: "When facing a large purchase decision, you usually:",
-    options: [
-      { key: "A", label: "Evaluate the long-term impact before acting." },
-      { key: "B", label: "Compare upside, timing, and opportunity cost." },
-      { key: "C", label: "Decide quickly if it feels worth it." },
-      { key: "D", label: "Delay until pressure forces a decision." }
-    ]
-  },
-  {
-    text: "How do you respond to financial uncertainty?",
-    options: [
-      { key: "A", label: "Strengthen my plan and reduce unnecessary risk." },
-      { key: "B", label: "Reposition quickly to protect and grow." },
-      { key: "C", label: "Keep spending habits mostly unchanged." },
-      { key: "D", label: "Pause and avoid making clear decisions." }
-    ]
-  },
-  {
-    text: "What best describes your relationship with financial goals?",
-    options: [
-      { key: "A", label: "I define clear milestones and execute consistently." },
-      { key: "B", label: "I set dynamic targets based on market opportunities." },
-      { key: "C", label: "I prefer flexibility over strict targets." },
-      { key: "D", label: "My goals are broad and not regularly reviewed." }
-    ]
-  },
-  {
-    text: "How would you describe your current financial trajectory?",
-    options: [
-      { key: "A", label: "Stable and controlled, with steady progress." },
-      { key: "B", label: "Upward with intentional growth moves." },
-      { key: "C", label: "Inconsistent, with cycles of progress and pullback." },
-      { key: "D", label: "Unclear, with no fixed direction yet." }
-    ]
-  }
-];
-
-const profiles: Record<Option, ResultProfile> = {
-  A: {
-    title: "You are The Architect",
-    description: "You value structure, control, and long-term financial security.",
-    image:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad64e?auto=format&fit=crop&w=900&q=80"
-  },
-  B: {
-    title: "You are The Strategist",
-    description: "You think ahead and balance growth with calculated decisions.",
-    image:
-      "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=900&q=80"
-  },
-  C: {
-    title: "You are The Spender",
-    description: "You prioritize lifestyle, speed, and immediate outcomes.",
-    image:
-      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?auto=format&fit=crop&w=900&q=80"
-  },
-  D: {
-    title: "You are The Drifter",
-    description: "You stay adaptable, but your money flow lacks fixed direction.",
-    image:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80"
-  }
-};
-
 export default function PersonalityPage() {
+  const t = useSiteText();
   const [stage, setStage] = useState<Stage>("landing");
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Option[]>([]);
@@ -127,6 +17,9 @@ export default function PersonalityPage() {
   const [submitState, setSubmitState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
+
+  const questions = t.personality.questions;
+  const profiles = t.personality.profiles;
 
   const resultKey = useMemo<Option>(() => {
     const counts: Record<Option, number> = { A: 0, B: 0, C: 0, D: 0 };
@@ -167,7 +60,7 @@ export default function PersonalityPage() {
         },
         body: JSON.stringify({
           email,
-          type: result.title.replace("You are The ", "").trim()
+          type: resultKey
         })
       });
 
@@ -189,6 +82,11 @@ export default function PersonalityPage() {
     setSubmitState("idle");
   };
 
+  const progressLabel = fillTemplate(t.personality.questionProgress, {
+    current: currentQuestion + 1,
+    total: questions.length
+  });
+
   return (
     <main className="min-h-[calc(100vh-73px)] bg-[#0b0f1a] px-4 py-14 text-white sm:py-20">
       <div className="mx-auto max-w-3xl">
@@ -196,20 +94,20 @@ export default function PersonalityPage() {
           {stage === "landing" && (
             <div className="text-center transition-all duration-300">
               <p className="inline-flex rounded-full border border-blue-300/20 bg-gradient-to-r from-blue-500/20 to-purple-500/20 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-                Personality Test
+                {t.personality.landingKicker}
               </p>
               <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-                Discover Your Financial Personality
+                {t.personality.landingTitle}
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                Answer a short diagnostic and get your dominant money behavior profile.
+                {t.personality.landingLead}
               </p>
               <button
                 type="button"
                 onClick={() => setStage("quiz")}
                 className="mt-8 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition hover:opacity-90"
               >
-                Start Test
+                {t.personality.startTest}
               </button>
             </div>
           )}
@@ -217,9 +115,7 @@ export default function PersonalityPage() {
           {stage === "quiz" && (
             <div key={currentQuestion} className="transition-all duration-300">
               <div className="flex items-center justify-between text-sm text-slate-300">
-                <span>
-                  Question {currentQuestion + 1}/{questions.length}
-                </span>
+                <span>{progressLabel}</span>
                 <span>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
               </div>
               <div className="mt-3 h-2 rounded-full bg-white/10">
@@ -257,23 +153,19 @@ export default function PersonalityPage() {
                 height={320}
                 className="mx-auto rounded-xl shadow-xl"
               />
-              <h3 className="mt-6 text-2xl font-semibold text-white sm:text-3xl">
-                {result.title}
-              </h3>
+              <h3 className="mt-6 text-2xl font-semibold text-white sm:text-3xl">{result.title}</h3>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
                 {result.description}
               </p>
 
               <div className="mt-8 rounded-xl border border-blue-300/20 bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-5">
-                <p className="text-base font-medium text-blue-100">
-                  Enter your email to receive full report
-                </p>
+                <p className="text-base font-medium text-blue-100">{t.personality.emailPrompt}</p>
                 <div className="mx-auto mt-4 flex max-w-xl flex-col gap-3 sm:flex-row">
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={t.personality.placeholderEmail}
                     className="w-full rounded-xl border border-white/15 bg-[#0f1629] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-blue-400"
                   />
                   <button
@@ -282,20 +174,16 @@ export default function PersonalityPage() {
                     disabled={!email || submitState === "loading"}
                     className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {submitState === "loading" ? "Sending..." : "Get Full Report"}
+                    {submitState === "loading" ? t.personality.sending : t.personality.getReport}
                   </button>
                 </div>
               </div>
 
               {submitState === "success" && (
-                <p className="mt-4 text-sm text-emerald-300">
-                  Your report has been sent to your email.
-                </p>
+                <p className="mt-4 text-sm text-emerald-300">{t.personality.successEmail}</p>
               )}
               {submitState === "error" && (
-                <p className="mt-4 text-sm text-rose-300">
-                  Failed to send report. Please try again.
-                </p>
+                <p className="mt-4 text-sm text-rose-300">{t.personality.errorEmail}</p>
               )}
 
               <button
@@ -303,7 +191,7 @@ export default function PersonalityPage() {
                 onClick={restartTest}
                 className="mt-6 text-sm text-slate-300 underline-offset-4 transition hover:text-white hover:underline"
               >
-                Retake Test
+                {t.personality.retake}
               </button>
             </div>
           )}

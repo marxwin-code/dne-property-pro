@@ -1,8 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useSiteText } from "@/lib/i18n/use-site-text";
 
 export function HousePackageLeadForm() {
+  const t = useSiteText();
+  const F = t.house.leadForm;
+  const E = t.errors;
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -29,17 +33,17 @@ export function HousePackageLeadForm() {
         emailData = (await emailRes.json()) as typeof emailData;
       } catch {
         setStatus("error");
-        setErrorDetail("Invalid response from server.");
+        setErrorDetail(E.invalidResponse);
         return;
       }
       if (!emailRes.ok) {
         setStatus("error");
-        setErrorDetail(emailData.message ?? `Request failed (${emailRes.status}).`);
+        setErrorDetail(emailData.message ?? E.genericTryAgain);
         return;
       }
       if (emailData.success !== true) {
         setStatus("error");
-        setErrorDetail(emailData.message ?? "The server did not confirm delivery.");
+        setErrorDetail(emailData.message ?? E.serverNoConfirm);
         return;
       }
 
@@ -52,14 +56,14 @@ export function HousePackageLeadForm() {
           ownership: "",
           leadScore: null,
           leadLevel: "",
-          recommendedProperties: JSON.stringify([{ name: "House Package inquiry", message }]),
-          source: "House Package"
+          recommendedProperties: JSON.stringify([{ name: t.house.inquiryRecordName, message }]),
+          source: t.house.leadSource
         })
       });
       const saveLeadData = (await saveLeadRes.json()) as { success?: boolean; message?: string };
       if (!saveLeadRes.ok || saveLeadData.success !== true) {
         setStatus("error");
-        setErrorDetail(saveLeadData.message ?? "Failed to save your request.");
+        setErrorDetail(saveLeadData.message ?? E.failedSaveRequest);
         return;
       }
       setStatus("success");
@@ -68,7 +72,7 @@ export function HousePackageLeadForm() {
       setMessage("");
     } catch {
       setStatus("error");
-      setErrorDetail("Network error. Please try again.");
+      setErrorDetail(E.networkRetry);
     }
   };
 
@@ -79,7 +83,7 @@ export function HousePackageLeadForm() {
     <form className="mt-10 grid max-w-md gap-5" onSubmit={handleSubmit}>
       <div>
         <label htmlFor="hp-name" className="block text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
-          Name
+          {F.name}
         </label>
         <input
           id="hp-name"
@@ -93,7 +97,7 @@ export function HousePackageLeadForm() {
       </div>
       <div>
         <label htmlFor="hp-email" className="block text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
-          Email
+          {F.email}
         </label>
         <input
           id="hp-email"
@@ -110,7 +114,7 @@ export function HousePackageLeadForm() {
           htmlFor="hp-message"
           className="block text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500"
         >
-          Message
+          {F.message}
         </label>
         <textarea
           id="hp-message"
@@ -118,7 +122,7 @@ export function HousePackageLeadForm() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className={`${inputClass} mt-2 resize-none`}
-          placeholder="Tell us what details you need most."
+          placeholder={F.messagePlaceholder}
         />
       </div>
       <button
@@ -126,15 +130,11 @@ export function HousePackageLeadForm() {
         disabled={status === "loading"}
         className="mt-2 w-full rounded-xl bg-brand-600 px-8 py-4 text-[11px] font-semibold uppercase tracking-[0.25em] text-white shadow-lg shadow-blue-900/20 transition hover:bg-brand-700 disabled:opacity-50"
       >
-        {status === "loading" ? "Sending…" : "Get Full Package & Price Breakdown"}
+        {status === "loading" ? F.sending : F.submit}
       </button>
-      {status === "success" ? (
-        <p className="text-sm text-emerald-800">
-          Thank you. We will email your full property report shortly.
-        </p>
-      ) : null}
+      {status === "success" ? <p className="text-sm text-emerald-800">{F.thanks}</p> : null}
       {status === "error" ? (
-        <p className="text-sm text-red-800">{errorDetail ?? "Something went wrong."}</p>
+        <p className="text-sm text-red-800">{errorDetail ?? F.errorFallback}</p>
       ) : null}
     </form>
   );

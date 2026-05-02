@@ -1,4 +1,4 @@
-import type { Lang } from "./i18n/home-hero";
+import type { Lang } from "./i18n/text";
 import type { AirtableListing } from "./airtable";
 
 /** Lead score 0–100: additive rules, capped at 100. */

@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode
 } from "react";
-import type { Lang } from "@/lib/i18n/home-hero";
+import type { Lang } from "@/lib/i18n/text";
 
 type LanguageContextValue = {
   lang: Lang;
