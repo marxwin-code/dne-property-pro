@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode
 } from "react";
@@ -17,14 +18,17 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+function readStoredLang(): Lang {
+  if (typeof window === "undefined") return "en";
+  const s = localStorage.getItem("lang");
+  return s === "zh" ? "zh" : "en";
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
 
-  useEffect(() => {
-    const saved = localStorage.getItem("lang");
-    if (saved === "zh" || saved === "en") {
-      setLangState(saved);
-    }
+  useLayoutEffect(() => {
+    setLangState(readStoredLang());
   }, []);
 
   const setLang = useCallback((next: Lang) => {

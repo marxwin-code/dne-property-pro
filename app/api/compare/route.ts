@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { fetchListingsFromAirtable, type AirtableListing } from "@/lib/airtable";
 import {
-  fetchListingsFromAirtable,
-  pickAffordableListings,
-  type AirtableListing
-} from "@/lib/airtable";
-import {
-  computeDealScore,
-  estimateMaxPurchasePrice,
-  getIntentLevel,
-  type IntentLevel
-} from "@/lib/compare-scoring";
+  buildSalesAdvice,
+  computeLeadScore,
+  getLeadLevel,
+  recommendPropertiesForBudget,
+  type LeadLevel
+} from "@/lib/lead-engine";
+import type { Lang } from "@/lib/i18n/home-hero";
+import { LUXURY_LISTING_IMAGES } from "@/lib/luxury-media";
 
 export const runtime = "nodejs";
 
@@ -20,6 +19,8 @@ type CompareBody = {
   savings?: number;
   hasProperty?: "Yes" | "No";
   email?: string;
+  lang?: Lang;
+  cityHint?: string;
 };
 
 function isPositiveNumber(value: unknown): value is number {
@@ -113,23 +114,24 @@ export async function POST(req: Request) {
     const savings = body.savings;
     const hasProperty = body.hasProperty;
     const age = body.age;
+    const lang: Lang = body.lang === "zh" ? "zh" : "en";
+    const cityHint = body.cityHint?.trim();
 
-    const dealScore = computeDealScore(income, savings, hasProperty);
-    const intentLevel: IntentLevel = getIntentLevel(dealScore);
+    const leadScore = computeLeadScore(age, income, savings, hasProperty);
+    const leadLevel: LeadLevel = getLeadLevel(leadScore);
     const affordability = getAffordability(income);
-    const maxPurchase = estimateMaxPurchasePrice(income, savings);
+    const budgetEstimate = savings * 5;
 
     let listings: AirtableListing[] = await fetchListingsFromAirtable();
     if (listings.length === 0) {
       listings = [
         {
           id: "fallback-1",
-          name: "Premium House & Land —West corridor",
+          name: "Premium House & Land — West corridor",
           price: 620_000,
           priceLabel: "$620,000",
           location: "Melbourne growth corridor",
-          image:
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80",
+          image: LUXURY_LISTING_IMAGES.architectural,
           description: "Turnkey package suited to owner-occupiers and investors seeking land upside."
         },
         {
@@ -138,8 +140,7 @@ export async function POST(req: Request) {
           price: 580_000,
           priceLabel: "$580,000",
           location: "Inner south-east",
-          image:
-            "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=80",
+          image: LUXURY_LISTING_IMAGES.living,
           description: "Low-maintenance layout with strong rental appeal."
         },
         {
@@ -148,14 +149,13 @@ export async function POST(req: Request) {
           price: 640_000,
           priceLabel: "$640,000",
           location: "Established schools precinct",
-          image:
-            "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80",
+          image: LUXURY_LISTING_IMAGES.exterior,
           description: "Four-bedroom stock aligned with family rental demand."
         }
       ];
     }
 
-    const recommendedRaw = pickAffordableListings(listings, maxPurchase, 3);
+    const recommendedRaw = recommendPropertiesForBudget(listings, savings, cityHint, 3);
     const recommendedProperties: CompareProperty[] = recommendedRaw.map((l) => ({
       id: l.id,
       name: l.name,
@@ -165,12 +165,19 @@ export async function POST(req: Request) {
       description: l.description || "—"
     }));
 
+    const salesAdvice = buildSalesAdvice(
+      leadLevel,
+      recommendedProperties.map((p) => ({ location: p.location, priceLabel: p.priceLabel })),
+      lang
+    );
+
     const jsonInstruction = `Return ONLY a single JSON object (no markdown) with keys:
-{"summary":"One concise executive sentence (max 35 words).","timing":"now"|"later"|"build_deposit","risks":"2-3 sentences on key risks.","strategy":"A premium advisory paragraph on affordability, timing, and next steps (4-6 sentences).","buyingPower":"One short sentence on purchase capacity vs deposit and serviceability."}`;
+{"summary":"One concise executive sentence (max 35 words).","timing":"now"|"later"|"build_deposit","risks":"2-3 sentences on key risks.","strategy":"A premium advisory paragraph on affordability, timing, and next steps (4-6 sentences).","buyingPower":"One short sentence referencing budget ≈ savings×5 and serviceability."}`;
 
     const prompt = `You are a senior Australian property investment adviser.
 Client: age ${age}, annual income AUD ${income}, savings AUD ${savings}, owns property: ${hasProperty}.
-Deal intent score (0-100): ${dealScore}. Affordability band: ${affordability}. Estimated max purchase ~AUD ${maxPurchase}.
+Lead score (0-100): ${leadScore}. Lead level: ${leadLevel}. Purchase budget indicator (savings×5): ~AUD ${budgetEstimate}.
+Affordability band: ${affordability}.
 ${jsonInstruction}`;
 
     const openai = new OpenAI({ apiKey: openAiKey });
@@ -195,9 +202,12 @@ ${jsonInstruction}`;
       success: true,
       message: "Report generated",
       report,
-      readinessScore: dealScore,
-      dealScore,
-      intentLevel,
+      leadScore,
+      leadLevel,
+      readinessScore: leadScore,
+      dealScore: leadScore,
+      salesAdvice,
+      budgetEstimate,
       affordability,
       summary: strategy.summary,
       propertyInsight,
@@ -206,8 +216,7 @@ ${jsonInstruction}`;
       timingLabel: timingLabel(strategy.timing),
       risks: strategy.risks,
       strategy: strategy.strategy,
-      recommendedProperties,
-      maxPurchaseEstimate: maxPurchase
+      recommendedProperties
     });
   } catch (e) {
     console.error("[compare]", e);

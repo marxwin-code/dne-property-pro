@@ -4,23 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LangSwitch } from "./lang-switch";
 import { useLanguage } from "./language-provider";
-import { siteCopy } from "@/lib/i18n/site";
+import { navText } from "@/lib/i18n/nav-text";
 import type { Lang } from "@/lib/i18n/home-hero";
 
 export function Navbar() {
   const pathname = usePathname();
   const { lang } = useLanguage();
-  const L = siteCopy[lang as Lang].nav;
+  const t = navText[lang as Lang];
 
   const navItems = [
-    { label: L.home, href: "/" },
-    { label: L.about, href: "/about" },
-    { label: L.services, href: "/services" },
-    { label: L.projects, href: "/projects" },
-    { label: L.properties, href: "/properties" },
-    { label: L.housePackage, href: "/house-package" },
-    { label: L.labs, href: "/labs" },
-    { label: L.contact, href: "/contact" }
+    { label: t.nav_home, href: "/" },
+    { label: t.nav_about, href: "/about" },
+    { label: t.nav_services, href: "/services" },
+    { label: t.nav_projects, href: "/projects" },
+    { label: t.nav_properties, href: "/properties" },
+    { label: t.nav_house_package, href: "/house-package" },
+    { label: t.nav_labs, href: "/labs" },
+    { label: t.nav_contact, href: "/contact" }
   ];
 
   const labsSectionActive =
@@ -47,7 +47,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-5">
           <nav aria-label="Main navigation">
             <ul className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2 sm:gap-x-2">
               {navItems.map((item) => {
@@ -85,14 +85,15 @@ export function Navbar() {
             </ul>
           </nav>
 
-          <LangSwitch />
-
-          <Link
-            href="/#interactive-360-home"
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-blue-900/30 transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-surface sm:text-sm"
-          >
-            {L.start360}
-          </Link>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <LangSwitch />
+            <Link
+              href="/#interactive-360-home"
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-blue-900/30 transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-surface sm:text-sm"
+            >
+              {t.button_start}
+            </Link>
+          </div>
         </div>
       </div>
     </header>

@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
-const DEFAULT_FALLBACK =
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+import { useState, type ComponentPropsWithoutRef } from "react";
+import { PROPERTY_IMG_FALLBACK } from "@/lib/luxury-media";
 
 function normalizeSrc(raw: string | null | undefined, fallback: string): string {
   if (!raw?.trim()) return fallback;
@@ -13,34 +11,41 @@ function normalizeSrc(raw: string | null | undefined, fallback: string): string 
   return fallback;
 }
 
-type RemoteImgProps = {
+type RemoteImgProps = Omit<ComponentPropsWithoutRef<"img">, "src"> & {
   src: string | null | undefined;
-  alt: string;
   fallbackSrc?: string;
-  className?: string;
-  sizes?: string;
 };
 
-/** Full-URL images only; failed loads swap to https fallback (no /public paths). */
+/** Full https URLs; empty → default luxury fallback; onError → default. lazy loading. */
 export function RemoteImg({
   src,
   alt,
-  fallbackSrc = DEFAULT_FALLBACK,
+  fallbackSrc = PROPERTY_IMG_FALLBACK,
   className,
-  sizes: _sizes
+  onLoad,
+  onError,
+  loading = "lazy",
+  ...rest
 }: RemoteImgProps) {
   const initial = normalizeSrc(src, fallbackSrc);
   const [current, setCurrent] = useState(initial);
 
   return (
     <img
+      {...rest}
       src={current}
-      alt={alt}
+      alt={alt || ""}
       className={className}
-      loading="lazy"
+      loading={loading}
       decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setCurrent(fallbackSrc)}
+      onLoad={onLoad}
+      onError={(e) => {
+        if (current !== fallbackSrc) {
+          setCurrent(fallbackSrc);
+        }
+        onError?.(e);
+      }}
     />
   );
 }

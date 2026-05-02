@@ -49,11 +49,10 @@ export function HousePackageLeadForm() {
         body: JSON.stringify({
           name,
           email,
-          age: null,
-          income: null,
-          savings: null,
-          propertyOwnership: "",
-          interestProperty: "Premium House & Land Package",
+          ownership: "",
+          leadScore: null,
+          leadLevel: "",
+          recommendedProperties: JSON.stringify([{ name: "House Package inquiry", message }]),
           source: "House Package"
         })
       });

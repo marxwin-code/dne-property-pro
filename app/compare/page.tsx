@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useLanguage } from "../components/language-provider";
-import { RemoteImg } from "../components/safe-image";
-import { getSalesScript } from "@/lib/compare-scoring";
+import { PropertyListingCard } from "../components/property-listing-card";
 import { siteCopy } from "@/lib/i18n/site";
 import type { Lang } from "@/lib/i18n/home-hero";
+
+type LeadLevel = "Hot" | "Warm" | "Cold";
 
 type CompareForm = {
   age: string;
@@ -14,6 +15,7 @@ type CompareForm = {
   savings: string;
   hasProperty: "Yes" | "No";
   email: string;
+  cityHint: string;
 };
 
 type Rec = {
@@ -27,9 +29,8 @@ type Rec = {
 
 type CompareResult = {
   report: string;
-  readinessScore: number;
-  dealScore: number;
-  intentLevel: "high" | "medium" | "low";
+  leadScore: number;
+  leadLevel: LeadLevel;
   affordability: "Low" | "Medium" | "High";
   summary: string;
   propertyInsight: string;
@@ -38,6 +39,8 @@ type CompareResult = {
   timingLabel: string;
   timing: string;
   recommendedProperties: Rec[];
+  salesAdvice: string;
+  budgetEstimate: number;
 };
 
 const initialForm: CompareForm = {
@@ -45,7 +48,8 @@ const initialForm: CompareForm = {
   income: "",
   savings: "",
   hasProperty: "No",
-  email: ""
+  email: "",
+  cityHint: ""
 };
 
 export default function ComparePage() {
@@ -62,6 +66,18 @@ export default function ComparePage() {
     hasProperty: "Yes" | "No";
   } | null>(null);
 
+  const leadBadgeClass = (level: LeadLevel) => {
+    if (level === "Hot") return "border-rose-500/50 bg-rose-500/15 text-rose-200";
+    if (level === "Warm") return "border-amber-500/50 bg-amber-500/15 text-amber-200";
+    return "border-slate-500/50 bg-slate-600/30 text-slate-300";
+  };
+
+  const leadLabel = (level: LeadLevel) => {
+    if (level === "Hot") return L.leadHot;
+    if (level === "Warm") return L.leadWarm;
+    return L.leadCold;
+  };
+
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus("loading");
@@ -74,7 +90,9 @@ export default function ComparePage() {
         income: Number(form.income),
         savings: Number(form.savings),
         hasProperty: form.hasProperty,
-        email: form.email.trim()
+        email: form.email.trim(),
+        lang: lang as Lang,
+        cityHint: form.cityHint.trim() || undefined
       };
 
       const compareResponse = await fetch("/api/compare", {
@@ -87,9 +105,8 @@ export default function ComparePage() {
         success?: boolean;
         message?: string;
         report?: string;
-        readinessScore?: number;
-        dealScore?: number;
-        intentLevel?: "high" | "medium" | "low";
+        leadScore?: number;
+        leadLevel?: LeadLevel;
         affordability?: "Low" | "Medium" | "High";
         summary?: string;
         propertyInsight?: string;
@@ -98,6 +115,8 @@ export default function ComparePage() {
         timing?: string;
         timingLabel?: string;
         recommendedProperties?: Rec[];
+        salesAdvice?: string;
+        budgetEstimate?: number;
       };
 
       if (!compareResponse.ok || compareData.success !== true) {
@@ -108,9 +127,8 @@ export default function ComparePage() {
 
       const compareResult: CompareResult = {
         report: compareData.report ?? "",
-        readinessScore: compareData.readinessScore ?? compareData.dealScore ?? 0,
-        dealScore: compareData.dealScore ?? compareData.readinessScore ?? 0,
-        intentLevel: compareData.intentLevel ?? "medium",
+        leadScore: compareData.leadScore ?? 0,
+        leadLevel: compareData.leadLevel ?? "Warm",
         affordability: compareData.affordability ?? "Low",
         summary: compareData.summary ?? "",
         propertyInsight: compareData.propertyInsight ?? "",
@@ -118,7 +136,9 @@ export default function ComparePage() {
         strategy: compareData.strategy ?? "",
         timingLabel: compareData.timingLabel ?? "",
         timing: compareData.timing ?? "",
-        recommendedProperties: compareData.recommendedProperties ?? []
+        recommendedProperties: compareData.recommendedProperties ?? [],
+        salesAdvice: compareData.salesAdvice ?? "",
+        budgetEstimate: compareData.budgetEstimate ?? 0
       };
 
       const emailResponse = await fetch("/api/send-email", {
@@ -126,9 +146,23 @@ export default function ComparePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "compare-report",
-          ...payload,
-          ...compareResult,
-          readinessScore: compareResult.dealScore
+          age: payload.age,
+          income: payload.income,
+          savings: payload.savings,
+          hasProperty: payload.hasProperty,
+          email: payload.email,
+          report: compareResult.report,
+          readinessScore: compareResult.leadScore,
+          dealScore: compareResult.leadScore,
+          leadScore: compareResult.leadScore,
+          leadLevel: compareResult.leadLevel,
+          salesAdvice: compareResult.salesAdvice,
+          summary: compareResult.summary,
+          propertyInsight: compareResult.propertyInsight,
+          risks: compareResult.risks,
+          strategy: compareResult.strategy,
+          timingLabel: compareResult.timingLabel,
+          recommendedProperties: compareResult.recommendedProperties
         })
       });
 
@@ -148,10 +182,16 @@ export default function ComparePage() {
           age: payload.age,
           income: payload.income,
           savings: payload.savings,
-          propertyOwnership: payload.hasProperty,
-          interestProperty:
-            compareResult.recommendedProperties[0]?.name ||
-            (compareResult.affordability !== "Low" ? "Premium House & Land Package" : ""),
+          ownership: payload.hasProperty,
+          leadScore: compareResult.leadScore,
+          leadLevel: compareResult.leadLevel,
+          recommendedProperties: JSON.stringify(
+            compareResult.recommendedProperties.map((p) => ({
+              name: p.name,
+              priceLabel: p.priceLabel,
+              location: p.location
+            }))
+          ),
           source: "Compare AI"
         })
       });
@@ -179,13 +219,7 @@ export default function ComparePage() {
     }
   };
 
-  const scorePct = result ? Math.min(100, Math.max(0, result.dealScore)) : 0;
-  const intentLabel =
-    result?.intentLevel === "high"
-      ? L.intentHigh
-      : result?.intentLevel === "low"
-        ? L.intentLow
-        : L.intentMed;
+  const scorePct = result ? Math.min(100, Math.max(0, result.leadScore)) : 0;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] px-4 py-14 text-slate-100 sm:py-20">
@@ -246,6 +280,17 @@ export default function ComparePage() {
           </label>
 
           <label className="text-sm font-medium text-slate-300">
+            {L.preferredCity}
+            <input
+              type="text"
+              value={form.cityHint}
+              onChange={(e) => setForm({ ...form, cityHint: e.target.value })}
+              placeholder={lang === "zh" ? "例如：Melbourne" : "e.g. Melbourne"}
+              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
+            />
+          </label>
+
+          <label className="text-sm font-medium text-slate-300">
             {L.email}
             <input
               required
@@ -278,17 +323,17 @@ export default function ComparePage() {
       {result ? (
         <div className="mx-auto mt-12 max-w-4xl space-y-8">
           <div className="rounded-2xl border border-sky-900/50 bg-[#0f172a]/90 p-8 shadow-xl">
-            <h2 className="border-b border-sky-900/60 pb-4 text-xl font-bold text-white">
-              {L.reportTitle}
-            </h2>
+            <h2 className="border-b border-sky-900/60 pb-4 text-xl font-bold text-white">{L.reportTitle}</h2>
 
             <div className="mt-8 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.score}</p>
               <div className="flex flex-wrap items-end gap-4">
-                <span className="text-5xl font-extrabold text-white">{result.dealScore}</span>
+                <span className="text-5xl font-extrabold text-white">{result.leadScore}</span>
                 <span className="pb-2 text-xl text-slate-500">/100</span>
-                <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
-                  {intentLabel}
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${leadBadgeClass(result.leadLevel)}`}
+                >
+                  {L.leadLevel}: {leadLabel(result.leadLevel)}
                 </span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
@@ -297,14 +342,19 @@ export default function ComparePage() {
                   style={{ width: `${scorePct}%` }}
                 />
               </div>
+              <p className="text-xs text-slate-500">{L.budgetHint}: ~${result.budgetEstimate.toLocaleString("en-AU")}</p>
             </div>
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.summary}</p>
               <p className="mt-3 text-lg leading-relaxed text-slate-200">{result.summary}</p>
-              <p className="mt-4 rounded-xl border border-slate-700/80 bg-[#020617]/80 p-4 text-sm leading-relaxed text-slate-400">
-                {getSalesScript(result.intentLevel, lang as Lang)}
-              </p>
+            </div>
+
+            <div className="mt-10 border-t border-sky-900/50 pt-8">
+              <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.salesAdvice}</p>
+              <div className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-700/80 bg-[#020617]/80 p-5 text-sm leading-relaxed text-slate-300">
+                {result.salesAdvice}
+              </div>
             </div>
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
@@ -329,7 +379,9 @@ export default function ComparePage() {
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.strategy}</p>
-              <p className="mt-2 text-sm font-medium text-sky-200">{L.timing}: {result.timingLabel}</p>
+              <p className="mt-2 text-sm font-medium text-sky-200">
+                {L.timing}: {result.timingLabel}
+              </p>
               <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-300">
                 <p className="whitespace-pre-wrap">{result.strategy}</p>
                 <p>
@@ -341,25 +393,19 @@ export default function ComparePage() {
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.recommended}</p>
-              <div className="mt-6 grid gap-6 md:grid-cols-3">
+              <div className="mt-6 grid gap-10 md:grid-cols-3">
                 {result.recommendedProperties.map((p) => (
-                  <div
+                  <PropertyListingCard
                     key={p.id}
-                    className="overflow-hidden rounded-xl border border-slate-700/80 bg-[#020617]/80"
-                  >
-                    <div className="aspect-[4/3] w-full bg-slate-900">
-                      <RemoteImg
-                        src={p.image}
-                        alt={p.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-white">{p.name}</h3>
-                      <p className="mt-1 text-sm text-sky-300">{p.priceLabel}</p>
-                      <p className="mt-1 text-xs text-slate-500">{p.location}</p>
-                    </div>
-                  </div>
+                    id={p.id}
+                    name={p.name}
+                    priceLabel={p.priceLabel}
+                    location={p.location}
+                    image={p.image}
+                    description={p.description}
+                    ctaHref="/contact"
+                    ctaLabel={lang === "zh" ? "预约咨询" : "Book consultation"}
+                  />
                 ))}
               </div>
             </div>
