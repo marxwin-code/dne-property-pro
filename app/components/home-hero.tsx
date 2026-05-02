@@ -3,15 +3,23 @@
 import Link from "next/link";
 import { useLanguage } from "./language-provider";
 import { homeHeroCopy } from "@/lib/i18n/home-hero";
+import { HERO_LUXURY_EXTERIOR } from "@/lib/luxury-media";
 
 export function HomeHero() {
   const { lang } = useLanguage();
   const t = homeHeroCopy[lang];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-lux-ink via-[#141c30] to-lux-surface px-4 py-20 text-center sm:py-28">
+    <section className="relative overflow-hidden px-4 py-20 text-center sm:py-28">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: `url(${HERO_LUXURY_EXTERIOR})`
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/75 via-[#0a1020]/82 to-lux-surface/92" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.12]"
         style={{
           backgroundImage:
             "radial-gradient(circle at 20% 20%, #c9a962 0%, transparent 45%), radial-gradient(circle at 80% 60%, #3b82f6 0%, transparent 40%)"
@@ -21,10 +29,10 @@ export function HomeHero() {
         <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-lux-gold">
           D&amp;E Property Pro
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl sm:leading-tight">
+        <h1 className="text-4xl font-semibold tracking-tight text-white drop-shadow-sm sm:text-5xl sm:leading-tight">
           {t.hero_title}
         </h1>
-        <p className="text-lg leading-relaxed text-slate-300 sm:text-xl">{t.hero_subtitle}</p>
+        <p className="text-lg leading-relaxed text-slate-200 sm:text-xl">{t.hero_subtitle}</p>
         <div className="flex flex-col items-center justify-center gap-3 pt-2 sm:flex-row sm:gap-4">
           <Link
             href="/#interactive-360-home"

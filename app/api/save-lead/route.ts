@@ -8,8 +8,13 @@ type SaveLeadBody = {
   age?: number | null;
   income?: number | null;
   savings?: number | null;
+  /** Yes | No */
+  ownership?: string;
   propertyOwnership?: string;
-  interestProperty?: string;
+  leadScore?: number | null;
+  leadLevel?: string;
+  /** JSON string of recommended listings */
+  recommendedProperties?: string;
   source?: string;
 };
 
@@ -21,11 +26,8 @@ function toNumberOrNull(value: unknown) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SaveLeadBody;
-    if (!body.email?.trim() || !body.source?.trim()) {
-      return NextResponse.json(
-        { success: false, message: "Email and source are required." },
-        { status: 400 }
-      );
+    if (!body.email?.trim()) {
+      return NextResponse.json({ success: false, message: "Email is required." }, { status: 400 });
     }
 
     const apiKey = process.env.AIRTABLE_API_KEY;
@@ -54,11 +56,15 @@ export async function POST(req: Request) {
       Age: toNumberOrNull(body.age),
       Income: toNumberOrNull(body.income),
       Savings: toNumberOrNull(body.savings),
-      "Property Ownership": body.propertyOwnership?.trim() || "",
-      "Interest Property": body.interestProperty?.trim() || "",
-      Source: body.source.trim(),
-      "Created Time": new Date().toISOString()
+      Ownership: (body.ownership ?? body.propertyOwnership ?? "").trim() || "",
+      LeadScore: toNumberOrNull(body.leadScore),
+      LeadLevel: body.leadLevel?.trim() || "",
+      RecommendedProperties: body.recommendedProperties?.trim() || "",
+      CreatedAt: new Date().toISOString()
     };
+    if (body.source?.trim()) {
+      fields.Source = body.source.trim();
+    }
 
     const response = await fetch(
       `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`,

@@ -1,3 +1,5 @@
+import { PROPERTY_IMG_FALLBACK } from "./luxury-media";
+
 /** Normalise listing image to a full https URL; otherwise returns null. */
 export function normalizeListingImageUrl(raw: string | null | undefined): string | null {
   if (!raw || typeof raw !== "string") return null;
@@ -8,8 +10,7 @@ export function normalizeListingImageUrl(raw: string | null | undefined): string
   return null;
 }
 
-export const FALLBACK_PROPERTY_IMAGE =
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80";
+export const FALLBACK_PROPERTY_IMAGE = PROPERTY_IMG_FALLBACK;
 
 export type AirtableListing = {
   id: string;
@@ -79,7 +80,9 @@ export async function fetchListingsFromAirtable(maxRecords = 100): Promise<Airta
       const name = String(f.Name ?? f.name ?? "Listing").trim() || "Listing";
       const { numeric, label } = parsePriceField(f.Price ?? f.price);
       const location = String(f.Location ?? f.location ?? "—").trim();
-      const rawImg = f.Image ?? f.image ?? f.Photo;
+      /** Primary field name in Airtable must be `Image URL` for reliable mapping. */
+      const rawImg =
+        f["Image URL"] ?? f["image url"] ?? f.Image ?? f.image ?? f.Photo ?? f.img;
       const imgNorm = normalizeListingImageUrl(
         typeof rawImg === "string" ? rawImg : Array.isArray(rawImg) && rawImg[0] ? String(rawImg[0]) : ""
       );
@@ -103,7 +106,7 @@ export async function fetchListingsFromAirtable(maxRecords = 100): Promise<Airta
   }
 }
 
-/** Pick up to `limit` listings with price <= maxPrice AUD (numeric). */
+/** @deprecated Use recommendPropertiesForBudget from lead-engine (budget = savings * 5). */
 export function pickAffordableListings(
   listings: AirtableListing[],
   maxPrice: number,

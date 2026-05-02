@@ -16,7 +16,8 @@ export async function GET() {
             priceLabel: "$620,000",
             location: "Melbourne growth corridor",
             image: FALLBACK_PROPERTY_IMAGE,
-            description: "Configure Airtable Properties table with Name, Price, Location, Image (https URL), Description."
+            description:
+              "Add your listings in Airtable: Name, Price, Location, Description, and an **Image URL** field (https://images.unsplash.com/...)."
           }
         ],
         demo: true

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { RESEND_FROM, RESEND_REPLY_TO } from "@/lib/resend-from";
-import { buildCompareReportEmailHtml, type EmailProperty } from "@/lib/report-email-html";
+import { buildPropertyInvestmentPlanHtml, type EmailProperty } from "@/lib/report-email-html";
 
 export const runtime = "nodejs";
 
@@ -17,6 +17,9 @@ type CompareEmailBody = {
   report: string;
   readinessScore: number;
   dealScore?: number;
+  leadScore?: number;
+  leadLevel?: string;
+  salesAdvice?: string;
   summary: string;
   propertyInsight: string;
   risks?: string;
@@ -64,7 +67,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: "Invalid email." }, { status: 400 });
       }
 
-      const score = body.dealScore ?? body.readinessScore;
+      const score = body.leadScore ?? body.dealScore ?? body.readinessScore;
+      const leadLevel = body.leadLevel ?? "Warm";
       const props: EmailProperty[] = (body.recommendedProperties ?? []).slice(0, 3).map((p) => ({
         name: p.name,
         priceLabel: p.priceLabel,
@@ -72,17 +76,11 @@ export async function POST(req: Request) {
         image: p.image
       }));
 
-      const strategyExcerpt = (body.strategy || body.propertyInsight || body.report).slice(0, 800);
-      const html = buildCompareReportEmailHtml({
+      const html = buildPropertyInvestmentPlanHtml({
+        leadScore: score,
+        leadLevel,
         summary: body.summary,
-        dealScore: score,
-        timingLabel: body.timingLabel || "Review timing with an adviser",
-        risks: body.risks || "Credit policy, interest rates, and market cycles can all affect outcomes.",
-        strategyExcerpt,
-        age: body.age,
-        income: body.income,
-        savings: body.savings,
-        hasProperty: body.hasProperty,
+        salesAdvice: body.salesAdvice ?? body.propertyInsight ?? "",
         properties: props
       });
 
@@ -90,9 +88,9 @@ export async function POST(req: Request) {
         from: RESEND_FROM,
         to: body.email.trim(),
         replyTo: RESEND_REPLY_TO,
-        subject: "Your Property Investment Report",
+        subject: "Your Property Investment Plan",
         html,
-        text: `Your Property Investment Report\n\nScore: ${score}/100\n\n${body.summary}\n\nView properties: https://depropertypro.com/properties\nBook: https://depropertypro.com/contact`
+        text: `Your Property Investment Plan\n\nScore: ${score}/100 (${leadLevel})\n\n${body.summary}\n\n${body.salesAdvice ?? ""}\n\nProperties: https://depropertypro.com/properties`
       });
 
       if (userResult.error || !userResult.data?.id) {
@@ -105,8 +103,8 @@ export async function POST(req: Request) {
 
       const leadText = `New Compare AI lead
 Email: ${body.email}
-Score: ${score}/100
-Age: ${body.age} | Income: ${body.income} | Savings: ${body.savings} | Property: ${body.hasProperty}
+LeadScore: ${score} | LeadLevel: ${leadLevel}
+Age: ${body.age} | Income: ${body.income} | Savings: ${body.savings} | Ownership: ${body.hasProperty}
 Summary: ${body.summary}
 Time: ${new Date().toISOString()}`;
 
@@ -126,7 +124,7 @@ Time: ${new Date().toISOString()}`;
         );
       }
 
-      console.log("[send-email] Compare report sent to customer and internal notify OK.");
+      console.log("[send-email] Investment plan sent to customer and internal notify OK.");
       return NextResponse.json({ success: true });
     }
 
