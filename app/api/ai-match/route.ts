@@ -55,6 +55,7 @@ export async function POST(req: Request) {
         price: p.price,
         priceLabel: p.priceLabel,
         location: p.location,
+        image_url: p.image_url,
         image: p.image,
         description: p.description
       })

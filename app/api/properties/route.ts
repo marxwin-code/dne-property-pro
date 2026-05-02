@@ -15,9 +15,10 @@ export async function GET() {
             name: "Premium House & Land",
             priceLabel: "$620,000",
             location: "Melbourne growth corridor",
+            image_url: FALLBACK_PROPERTY_IMAGE,
             image: FALLBACK_PROPERTY_IMAGE,
             description:
-              "Add your listings in Airtable: Name, Price, Location, Description, and an **Image URL** field (https://images.unsplash.com/...)."
+              "Add your listings in Airtable: name, price, location, description, image_url (https://…)."
           }
         ],
         demo: true
@@ -30,6 +31,7 @@ export async function GET() {
         name: l.name,
         priceLabel: l.priceLabel,
         location: l.location,
+        image_url: l.image_url,
         image: l.image,
         description: l.description
       })),

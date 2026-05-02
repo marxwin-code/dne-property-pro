@@ -12,14 +12,20 @@ export function normalizeListingImageUrl(raw: string | null | undefined): string
 
 export const FALLBACK_PROPERTY_IMAGE = PROPERTY_IMG_FALLBACK;
 
+/**
+ * Normalised listing — always use these keys on the frontend/API (never raw `fields`).
+ */
 export type AirtableListing = {
   id: string;
   name: string;
   price: number;
   priceLabel: string;
   location: string;
-  image: string;
+  /** Primary image URL (maps from Airtable `image_url`). */
+  image_url: string;
   description: string;
+  /** Alias of `image_url` for legacy callers. */
+  image: string;
 };
 
 function parsePriceField(value: unknown): { numeric: number; label: string } {
@@ -35,9 +41,47 @@ function parsePriceField(value: unknown): { numeric: number; label: string } {
   return { numeric: Number.POSITIVE_INFINITY, label: s || "—" };
 }
 
+type RawFields = Record<string, unknown>;
+
+/**
+ * Single place: map Airtable record.fields → app shape (lowercase schema).
+ * Expected columns: name, price, location, image_url, description (legacy column names still read as fallback).
+ */
+export function mapFieldsToListing(id: string, fields: RawFields): AirtableListing {
+  const f = fields;
+  const name = String(f.name ?? f.Name ?? "Listing").trim() || "Listing";
+  const { numeric, label } = parsePriceField(f.price ?? f.Price);
+  const location = String(f.location ?? f.Location ?? "—").trim();
+  const rawImg =
+    f.image_url ??
+    f.image_URL ??
+    f["Image URL"] ??
+    f["image url"] ??
+    f.Image ??
+    f.image ??
+    f.Photo ??
+    f.img;
+  const imgNorm = normalizeListingImageUrl(
+    typeof rawImg === "string" ? rawImg : Array.isArray(rawImg) && rawImg[0] ? String(rawImg[0]) : ""
+  );
+  const image_url = imgNorm ?? FALLBACK_PROPERTY_IMAGE;
+  const description = String(f.description ?? f.Description ?? "").trim();
+
+  return {
+    id,
+    name,
+    price: numeric,
+    priceLabel: label,
+    location,
+    image_url,
+    image: image_url,
+    description
+  };
+}
+
 type AirtableRecord = {
   id: string;
-  fields: Record<string, unknown>;
+  fields: RawFields;
 };
 
 export function getAirtableEnv() {
@@ -74,32 +118,7 @@ export async function fetchListingsFromAirtable(maxRecords = 100): Promise<Airta
     const records = data.records ?? [];
     console.log(`[airtable] Connected: loaded ${records.length} listing rows from "${listingsTable}".`);
 
-    const out: AirtableListing[] = [];
-    for (const rec of records) {
-      const f = rec.fields;
-      const name = String(f.Name ?? f.name ?? "Listing").trim() || "Listing";
-      const { numeric, label } = parsePriceField(f.Price ?? f.price);
-      const location = String(f.Location ?? f.location ?? "—").trim();
-      /** Primary field name in Airtable must be `Image URL` for reliable mapping. */
-      const rawImg =
-        f["Image URL"] ?? f["image url"] ?? f.Image ?? f.image ?? f.Photo ?? f.img;
-      const imgNorm = normalizeListingImageUrl(
-        typeof rawImg === "string" ? rawImg : Array.isArray(rawImg) && rawImg[0] ? String(rawImg[0]) : ""
-      );
-      const image = imgNorm ?? FALLBACK_PROPERTY_IMAGE;
-      const description = String(f.Description ?? f.description ?? "").trim();
-
-      out.push({
-        id: rec.id,
-        name,
-        price: numeric,
-        priceLabel: label,
-        location,
-        image,
-        description
-      });
-    }
-    return out;
+    return records.map((rec) => mapFieldsToListing(rec.id, rec.fields));
   } catch (e) {
     console.error("[airtable] Listings fetch error:", e);
     return [];

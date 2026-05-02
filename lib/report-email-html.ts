@@ -276,3 +276,62 @@ export function buildCompareReportEmailHtml(params: {
 </body>
 </html>`;
 }
+
+export type RiskReportEmailParams = {
+  email: string;
+  risk_score: number;
+  risk_level: string;
+  ai_summary: string;
+  recommendation: string;
+};
+
+/** Risk report delivery — primary CTA returns user to the site with email prefilled. */
+export function buildRiskReportEmailHtml(params: RiskReportEmailParams): string {
+  const site = getSiteUrl();
+  const reportUrl = `${site}/risk-report?email=${encodeURIComponent(params.email.trim())}`;
+  return `<!DOCTYPE html>
+<html>
+<body style="margin:0;background:#020617;font-family:system-ui,-apple-system,sans-serif;color:#e2e8f0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#020617;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#0f172a;border-radius:16px;border:1px solid #78350f;overflow:hidden;">
+          <tr>
+            <td style="padding:28px 24px 12px;border-bottom:1px solid #1e293b;">
+              <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#fbbf24;">D&amp;E Property Pro</div>
+              <h1 style="margin:12px 0 0;font-size:22px;color:#f8fafc;">Your Property Risk Report</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 24px;border-bottom:1px solid #1e293b;">
+              <div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:8px;">Risk score</div>
+              <div style="font-size:32px;font-weight:800;color:#fff;">${params.risk_score}<span style="font-size:18px;color:#64748b;">/100</span></div>
+              <p style="margin:12px 0 0;font-size:14px;color:#94a3b8;">${escapeHtml(params.risk_level)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 24px;border-bottom:1px solid #1e293b;">
+              <div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:8px;">Summary</div>
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#cbd5e1;">${escapeHtml(params.ai_summary)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 24px;border-bottom:1px solid #1e293b;">
+              <div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:8px;">Recommendation</div>
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#fef3c7;">${escapeHtml(params.recommendation)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;background:#020617;">
+              <a href="${escapeHtml(reportUrl)}" style="display:inline-block;background:#f59e0b;color:#0f172a;text-decoration:none;padding:14px 26px;border-radius:999px;font-weight:800;font-size:15px;">View Full Risk Report</a>
+              <p style="margin:16px 0 0;font-size:12px;color:#64748b;">Save this link to revisit your breakdown anytime.</p>
+            </td>
+          </tr>
+        </table>
+        <p style="font-size:11px;color:#64748b;margin-top:16px;">This email was sent by D&amp;E Property Pro · Reply to this message or write to info@depropertypro.com</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}

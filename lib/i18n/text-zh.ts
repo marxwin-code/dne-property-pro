@@ -367,6 +367,7 @@ export const zh: SiteText = {
     savings: "当前存款",
     property: "是否已有房产？",
     email: "邮箱",
+    clientName: "姓名",
     submit: "生成我的报告",
     generating: "生成中…",
     success: "报告已发送至您的邮箱",
@@ -423,7 +424,14 @@ export const zh: SiteText = {
     upgradeHint: "升级可查看完整分解、智能解读与专业建议。",
     riskHigh: "高",
     riskMedium: "中",
-    riskLow: "低"
+    riskLow: "低",
+    retrieveSection: "已保存报告",
+    retrieveHint: "填写当时接收报告的邮箱，即可查看最新存档的风险报告。",
+    getMyReport: "查看我的报告",
+    emailForReport: "邮箱（用于发送完整报告）",
+    riskScoreHeading: "风险分数",
+    riskLevelHeading: "风险等级",
+    savedAt: "存档时间"
   },
   contact: {
     kicker: "联系",
