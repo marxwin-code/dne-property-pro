@@ -2,11 +2,16 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "../components/language-provider";
+import { siteCopy } from "@/lib/i18n/site";
+import type { Lang } from "@/lib/i18n/home-hero";
 
 const fieldClass =
   "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:shadow-[0_0_0_3px_rgba(37,99,235,0.15)]";
 
 export default function ContactPage() {
+  const { lang } = useLanguage();
+  const C = siteCopy[lang as Lang].contact;
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -37,7 +42,7 @@ export default function ContactPage() {
         data = (await res.json()) as typeof data;
       } catch {
         setStatus("error");
-        setErrorDetail("Invalid response from server.");
+        setErrorDetail(lang === "zh" ? "服务器响应无效。" : "Invalid response from server.");
         return;
       }
 
@@ -62,7 +67,7 @@ export default function ContactPage() {
       });
     } catch {
       setStatus("error");
-      setErrorDetail("Network error. Check your connection and try again.");
+      setErrorDetail(lang === "zh" ? "网络错误，请检查连接后重试。" : "Network error. Check your connection and try again.");
     }
   };
 
@@ -70,11 +75,9 @@ export default function ContactPage() {
     <main className="w-full bg-gradient-to-b from-slate-100 via-slate-200/90 to-slate-100">
       <section className="border-b border-slate-300/50 bg-gradient-to-br from-lux-ink via-[#141c30] to-lux-surface px-4 py-20 text-center text-white sm:py-24">
         <div className="mx-auto max-w-3xl space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-lux-gold">Contact</p>
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Contact Us</h1>
-          <p className="text-lg leading-relaxed text-slate-300">
-            Let&apos;s discuss how we can help your property or business grow.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-lux-gold">{C.kicker}</p>
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{C.title}</h1>
+          <p className="text-lg leading-relaxed text-slate-300">{C.lead}</p>
         </div>
       </section>
 
@@ -82,14 +85,11 @@ export default function ContactPage() {
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <aside className="flex flex-col justify-between space-y-8 rounded-3xl border border-slate-200/80 bg-white p-8 shadow-[0_24px_48px_-20px_rgba(15,23,42,0.18)] lg:min-h-[520px]">
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-lux-ink">Reach us directly</h2>
-              <p className="text-sm leading-relaxed text-slate-600">
-                For business inquiries, partnerships, or property consulting, feel free to reach out
-                via email or the form.
-              </p>
+              <h2 className="text-xl font-semibold text-lux-ink">{C.asideTitle}</h2>
+              <p className="text-sm leading-relaxed text-slate-600">{C.asideBody}</p>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Business Contact
+                  {C.businessLabel}
                 </p>
                 <a
                   href="mailto:info@depropertypro.com"
@@ -101,26 +101,24 @@ export default function ContactPage() {
             </div>
             <div className="space-y-6">
               <p className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">
-                We usually respond within 24 hours.
+                {C.response}
               </p>
               <Link
                 href="/#interactive-360-home"
                 className="inline-flex text-sm font-semibold text-brand-600 transition hover:text-brand-700"
               >
-                ← Back to 360° demo
+                {C.back360}
               </Link>
             </div>
           </aside>
 
           <div className="rounded-3xl border border-slate-200/80 bg-white p-8 shadow-[0_28px_56px_-24px_rgba(15,23,42,0.22)] sm:p-10">
-            <h2 className="text-xl font-semibold text-lux-ink">Send an inquiry</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              A short note is enough — we&apos;ll reply by email.
-            </p>
+            <h2 className="text-xl font-semibold text-lux-ink">{C.formTitle}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{C.formHint}</p>
             <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Name
+                  {C.name}
                 </label>
                 <input
                   id="name"
@@ -134,7 +132,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Email
+                  {C.email}
                 </label>
                 <input
                   id="email"
@@ -148,7 +146,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <label htmlFor="propertyType" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Property Type
+                  {C.propertyType}
                 </label>
                 <select
                   id="propertyType"
@@ -162,7 +160,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <label htmlFor="message" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Message
+                  {C.message}
                 </label>
                 <textarea
                   id="message"
@@ -177,17 +175,15 @@ export default function ContactPage() {
                 disabled={status === "loading"}
                 className="mt-2 w-full rounded-2xl bg-gradient-to-r from-brand-600 via-blue-600 to-blue-700 py-4 text-sm font-semibold text-white shadow-lg shadow-blue-900/25 transition hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
               >
-                {status === "loading" ? "Sending…" : "Send Inquiry"}
+                {status === "loading" ? C.sending : C.send}
               </button>
             </form>
             {status === "success" ? (
-              <p className="mt-4 text-sm font-medium text-emerald-700">
-                Thanks — we received your inquiry and will reply within 24 hours.
-              </p>
+              <p className="mt-4 text-sm font-medium text-emerald-700">{C.thanks}</p>
             ) : null}
             {status === "error" ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-800">
-                <p className="font-medium">Could not send your inquiry.</p>
+                <p className="font-medium">{C.errorTitle}</p>
                 {errorDetail ? <p className="mt-1 text-rose-700">{errorDetail}</p> : null}
                 <p className="mt-2 text-rose-700">
                   You can also email{" "}

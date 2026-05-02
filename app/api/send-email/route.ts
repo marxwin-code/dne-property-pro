@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { RESEND_FROM, RESEND_REPLY_TO } from "@/lib/resend-from";
+import { buildCompareReportEmailHtml, type EmailProperty } from "@/lib/report-email-html";
 
 export const runtime = "nodejs";
 
-const FROM_ADDRESS = "info@mail.depropertypro.com";
-const PACKAGE_URL = "https://depropertypro.com/house-package";
+const INTERNAL_INBOX = "info@depropertypro.com";
 
 type CompareEmailBody = {
   type: "compare-report";
@@ -15,8 +16,20 @@ type CompareEmailBody = {
   email: string;
   report: string;
   readinessScore: number;
+  dealScore?: number;
   summary: string;
   propertyInsight: string;
+  risks?: string;
+  strategy?: string;
+  timingLabel?: string;
+  recommendedProperties?: Array<{
+    id: string;
+    name: string;
+    priceLabel: string;
+    location: string;
+    image: string;
+    description?: string;
+  }>;
 };
 
 type HouseEmailBody = {
@@ -37,6 +50,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as EmailBody;
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
+      console.error("[send-email] Missing RESEND_API_KEY");
       return NextResponse.json(
         { success: false, message: "Server configuration missing RESEND_API_KEY." },
         { status: 503 }
@@ -50,60 +64,69 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: "Invalid email." }, { status: 400 });
       }
 
-      const userText = `Your Personal Property Report
+      const score = body.dealScore ?? body.readinessScore;
+      const props: EmailProperty[] = (body.recommendedProperties ?? []).slice(0, 3).map((p) => ({
+        name: p.name,
+        priceLabel: p.priceLabel,
+        location: p.location,
+        image: p.image
+      }));
 
-Property Readiness Score: ${body.readinessScore}/100
-Summary: ${body.summary}
-
-Financial Snapshot
-- Age: ${body.age}
-- Income: ${body.income}
-- Savings: ${body.savings}
-- Property Ownership: ${body.hasProperty}
-
-Property Insight
-${body.propertyInsight}
-
-AI Report
-${body.report}
-
-Recommended Property:
-Premium House & Land Package
-From $620,000
-${PACKAGE_URL}
-
-Book a consultation or view property`;
+      const strategyExcerpt = (body.strategy || body.propertyInsight || body.report).slice(0, 800);
+      const html = buildCompareReportEmailHtml({
+        summary: body.summary,
+        dealScore: score,
+        timingLabel: body.timingLabel || "Review timing with an adviser",
+        risks: body.risks || "Credit policy, interest rates, and market cycles can all affect outcomes.",
+        strategyExcerpt,
+        age: body.age,
+        income: body.income,
+        savings: body.savings,
+        hasProperty: body.hasProperty,
+        properties: props
+      });
 
       const userResult = await resend.emails.send({
-        from: FROM_ADDRESS,
+        from: RESEND_FROM,
         to: body.email.trim(),
-        subject: "Your Property Readiness Report",
-        text: userText
+        replyTo: RESEND_REPLY_TO,
+        subject: "Your Property Investment Report",
+        html,
+        text: `Your Property Investment Report\n\nScore: ${score}/100\n\n${body.summary}\n\nView properties: https://depropertypro.com/properties\nBook: https://depropertypro.com/contact`
       });
+
       if (userResult.error || !userResult.data?.id) {
+        console.error("[send-email] Customer report failed:", userResult.error);
         return NextResponse.json(
           { success: false, message: userResult.error?.message ?? "Failed to send report email." },
           { status: 502 }
         );
       }
 
+      const leadText = `New Compare AI lead
+Email: ${body.email}
+Score: ${score}/100
+Age: ${body.age} | Income: ${body.income} | Savings: ${body.savings} | Property: ${body.hasProperty}
+Summary: ${body.summary}
+Time: ${new Date().toISOString()}`;
+
       const leadResult = await resend.emails.send({
-        from: FROM_ADDRESS,
-        to: "info@depropertypro.com",
-        subject: "New Compare AI Lead",
-        text: `Age: ${body.age}
-Income: ${body.income}
-Savings: ${body.savings}
-Property: ${body.hasProperty}
-Email: ${body.email}`
+        from: RESEND_FROM,
+        to: INTERNAL_INBOX,
+        replyTo: body.email.trim(),
+        subject: "New Lead - Property Inquiry",
+        text: leadText
       });
+
       if (leadResult.error || !leadResult.data?.id) {
+        console.error("[send-email] Internal notify failed:", leadResult.error);
         return NextResponse.json(
           { success: false, message: leadResult.error?.message ?? "Failed to send lead email." },
           { status: 502 }
         );
       }
 
+      console.log("[send-email] Compare report sent to customer and internal notify OK.");
       return NextResponse.json({ success: true });
     }
 
@@ -115,25 +138,30 @@ Email: ${body.email}`
     }
 
     const houseLeadResult = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: "info@depropertypro.com",
-      subject: "New House Package Lead",
-      text: `Name: ${body.name.trim()}
+      from: RESEND_FROM,
+      to: INTERNAL_INBOX,
+      replyTo: body.email.trim(),
+      subject: "New Lead - Property Inquiry",
+      text: `House Package inquiry
+Name: ${body.name.trim()}
 Email: ${body.email.trim()}
 Message: ${body.message?.trim() || "-"}
-Interest Property: Premium House & Land Package
-Source: House Package`
+Source: House Package
+Time: ${new Date().toISOString()}`
     });
 
     if (houseLeadResult.error || !houseLeadResult.data?.id) {
+      console.error("[send-email] House lead failed:", houseLeadResult.error);
       return NextResponse.json(
         { success: false, message: houseLeadResult.error?.message ?? "Failed to send lead email." },
         { status: 502 }
       );
     }
 
+    console.log("[send-email] House package lead email OK.");
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error("[send-email]", e);
     return NextResponse.json(
       { success: false, message: "Something went wrong, please try again" },
       { status: 500 }
