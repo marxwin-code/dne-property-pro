@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { RESEND_FROM, RESEND_REPLY_TO } from "@/lib/resend-from";
-import { buildPropertyInvestmentPlanHtml, type EmailProperty } from "@/lib/report-email-html";
+import {
+  buildPropertyInvestmentPlanHtml,
+  type EmailProperty,
+  type UserSnapshot
+} from "@/lib/report-email-html";
 
 export const runtime = "nodejs";
 
@@ -20,11 +24,13 @@ type CompareEmailBody = {
   leadScore?: number;
   leadLevel?: string;
   salesAdvice?: string;
+  salesPitch?: string;
   summary: string;
   propertyInsight: string;
   risks?: string;
   strategy?: string;
   timingLabel?: string;
+  cityHint?: string;
   recommendedProperties?: Array<{
     id: string;
     name: string;
@@ -69,19 +75,38 @@ export async function POST(req: Request) {
 
       const score = body.leadScore ?? body.dealScore ?? body.readinessScore;
       const leadLevel = body.leadLevel ?? "Warm";
+      const pitch =
+        body.salesPitch ??
+        (leadLevel === "Hot"
+          ? "You are well positioned to invest — we recommend scheduling viewings and professional advice promptly."
+          : leadLevel === "Warm"
+            ? "You are approaching purchase readiness — consider entry-level properties aligned with your budget."
+            : "We recommend building savings and borrowing capacity before entering the market — timing is not ideal yet.");
+
       const props: EmailProperty[] = (body.recommendedProperties ?? []).slice(0, 3).map((p) => ({
         name: p.name,
         priceLabel: p.priceLabel,
         location: p.location,
-        image: p.image
+        image: p.image,
+        description: p.description
       }));
+
+      const userSnapshot: UserSnapshot = {
+        age: body.age,
+        income: body.income,
+        savings: body.savings,
+        hasProperty: body.hasProperty,
+        location: body.cityHint?.trim()
+      };
 
       const html = buildPropertyInvestmentPlanHtml({
         leadScore: score,
         leadLevel,
         summary: body.summary,
+        salesPitch: pitch,
         salesAdvice: body.salesAdvice ?? body.propertyInsight ?? "",
-        properties: props
+        properties: props,
+        userSnapshot
       });
 
       const userResult = await resend.emails.send({

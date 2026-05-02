@@ -15,6 +15,7 @@ export function Navbar() {
     { label: t.nav.nav_services, href: "/services" },
     { label: t.nav.nav_projects, href: "/projects" },
     { label: t.nav.nav_properties, href: "/properties" },
+    { label: t.nav.nav_risk_report, href: "/risk-report" },
     { label: t.nav.nav_house_package, href: "/house-package" },
     { label: t.nav.nav_labs, href: "/labs" },
     { label: t.nav.nav_contact, href: "/contact" }

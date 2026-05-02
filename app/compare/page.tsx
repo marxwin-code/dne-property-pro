@@ -40,6 +40,7 @@ type CompareResult = {
   timing: string;
   recommendedProperties: Rec[];
   salesAdvice: string;
+  salesPitch: string;
   budgetEstimate: number;
 };
 
@@ -118,6 +119,7 @@ export default function ComparePage() {
         timingLabel?: string;
         recommendedProperties?: Rec[];
         salesAdvice?: string;
+        salesPitch?: string;
         budgetEstimate?: number;
       };
 
@@ -140,6 +142,7 @@ export default function ComparePage() {
         timing: compareData.timing ?? "",
         recommendedProperties: compareData.recommendedProperties ?? [],
         salesAdvice: compareData.salesAdvice ?? "",
+        salesPitch: compareData.salesPitch ?? "",
         budgetEstimate: compareData.budgetEstimate ?? 0
       };
 
@@ -159,11 +162,13 @@ export default function ComparePage() {
           leadScore: compareResult.leadScore,
           leadLevel: compareResult.leadLevel,
           salesAdvice: compareResult.salesAdvice,
+          salesPitch: compareResult.salesPitch,
           summary: compareResult.summary,
           propertyInsight: compareResult.propertyInsight,
           risks: compareResult.risks,
           strategy: compareResult.strategy,
           timingLabel: compareResult.timingLabel,
+          cityHint: form.cityHint.trim(),
           recommendedProperties: compareResult.recommendedProperties
         })
       });
@@ -181,20 +186,11 @@ export default function ComparePage() {
         body: JSON.stringify({
           name: "",
           email: payload.email,
-          age: payload.age,
           income: payload.income,
           savings: payload.savings,
           ownership: payload.hasProperty,
-          leadScore: compareResult.leadScore,
-          leadLevel: compareResult.leadLevel,
-          recommendedProperties: JSON.stringify(
-            compareResult.recommendedProperties.map((p) => ({
-              name: p.name,
-              priceLabel: p.priceLabel,
-              location: p.location
-            }))
-          ),
-          source: "Compare AI"
+          location: form.cityHint.trim(),
+          score: compareResult.leadScore
         })
       });
 
@@ -351,6 +347,13 @@ export default function ComparePage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.summary}</p>
               <p className="mt-3 text-lg leading-relaxed text-slate-200">{result.summary}</p>
             </div>
+
+            {result.salesPitch ? (
+              <div className="mt-10 rounded-2xl border border-sky-500/40 bg-gradient-to-br from-blue-950/80 to-slate-900/90 p-6 shadow-[0_12px_40px_rgba(37,99,235,0.15)]">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-300">{L.salesInsight}</p>
+                <p className="mt-3 text-base font-medium leading-relaxed text-white">{result.salesPitch}</p>
+              </div>
+            ) : null}
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.salesAdvice}</p>
