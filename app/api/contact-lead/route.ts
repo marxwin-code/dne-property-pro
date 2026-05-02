@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { RESEND_FROM, RESEND_REPLY_TO } from "@/lib/resend-from";
 
 export const runtime = "nodejs";
-
-/** Must match a verified sender in Resend (domain DNS). */
-const CONTACT_FROM = "D&E Property Pro <info@mail.depropertypro.com>";
 
 type Body = {
   fullName?: string;
@@ -49,10 +47,10 @@ message: ${message}`;
     try {
       const resend = new Resend(apiKey);
       const { data, error } = await resend.emails.send({
-        from: CONTACT_FROM,
-        to: "info@depropertypro.com",
+        from: RESEND_FROM,
+        to: RESEND_REPLY_TO,
         replyTo: email,
-        subject: "New Lead from Website",
+        subject: "New Lead - Property Inquiry",
         text
       });
 

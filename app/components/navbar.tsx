@@ -2,24 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const navItems = [
-  { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Services", href: "/services" },
-  { label: "Projects", href: "/projects" },
-  { label: "Properties", href: "/house-package" },
-  { label: "D&E Labs", href: "/labs" },
-  { label: "Contact", href: "/contact" }
-];
+import { LangSwitch } from "./lang-switch";
+import { useLanguage } from "./language-provider";
+import { siteCopy } from "@/lib/i18n/site";
+import type { Lang } from "@/lib/i18n/home-hero";
 
 export function Navbar() {
   const pathname = usePathname();
+  const { lang } = useLanguage();
+  const L = siteCopy[lang as Lang].nav;
+
+  const navItems = [
+    { label: L.home, href: "/" },
+    { label: L.about, href: "/about" },
+    { label: L.services, href: "/services" },
+    { label: L.projects, href: "/projects" },
+    { label: L.properties, href: "/properties" },
+    { label: L.housePackage, href: "/house-package" },
+    { label: L.labs, href: "/labs" },
+    { label: L.contact, href: "/contact" }
+  ];
+
   const labsSectionActive =
     pathname.startsWith("/labs") ||
     pathname.startsWith("/compare") ||
     pathname.startsWith("/personality");
-  const propertiesActive = pathname === "/house-package" || pathname.startsWith("/house-package/");
+  const propertiesActive =
+    pathname === "/properties" || pathname.startsWith("/properties/");
+  const packageActive =
+    pathname === "/house-package" || pathname.startsWith("/house-package/");
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-lux-surface/95 shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
@@ -44,10 +55,12 @@ export function Navbar() {
                   item.href === "/"
                     ? pathname === "/"
                     : item.href === "/house-package"
-                      ? propertiesActive
-                    : item.href === "/labs"
-                      ? labsSectionActive
-                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      ? packageActive
+                      : item.href === "/properties"
+                        ? propertiesActive
+                        : item.href === "/labs"
+                          ? labsSectionActive
+                          : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <li key={item.href}>
                     <Link
@@ -72,11 +85,13 @@ export function Navbar() {
             </ul>
           </nav>
 
+          <LangSwitch />
+
           <Link
             href="/#interactive-360-home"
             className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-blue-900/30 transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-lux-surface sm:text-sm"
           >
-            Start 360
+            {L.start360}
           </Link>
         </div>
       </div>

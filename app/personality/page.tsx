@@ -96,22 +96,26 @@ const profiles: Record<Option, ResultProfile> = {
   A: {
     title: "You are The Architect",
     description: "You value structure, control, and long-term financial security.",
-    image: "/images/architect.png"
+    image:
+      "https://images.unsplash.com/photo-1486406146926-c627a92ad64e?auto=format&fit=crop&w=900&q=80"
   },
   B: {
     title: "You are The Strategist",
     description: "You think ahead and balance growth with calculated decisions.",
-    image: "/images/strategist.png"
+    image:
+      "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=900&q=80"
   },
   C: {
     title: "You are The Spender",
     description: "You prioritize lifestyle, speed, and immediate outcomes.",
-    image: "/images/spender.png"
+    image:
+      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?auto=format&fit=crop&w=900&q=80"
   },
   D: {
     title: "You are The Drifter",
     description: "You stay adaptable, but your money flow lacks fixed direction.",
-    image: "/images/drifter.png"
+    image:
+      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80"
   }
 };
 

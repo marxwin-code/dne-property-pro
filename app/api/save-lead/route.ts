@@ -31,7 +31,17 @@ export async function POST(req: Request) {
     const apiKey = process.env.AIRTABLE_API_KEY;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = process.env.AIRTABLE_TABLE_NAME || "Leads";
+
+    console.log("[save-lead] Airtable env check:", {
+      hasApiKey: Boolean(apiKey),
+      hasBaseId: Boolean(baseId),
+      tableName
+    });
+
     if (!apiKey || !baseId) {
+      console.error(
+        "[save-lead] Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID — set these in Vercel environment variables."
+      );
       return NextResponse.json(
         { success: false, message: "Server configuration missing Airtable credentials." },
         { status: 503 }
@@ -65,7 +75,11 @@ export async function POST(req: Request) {
     );
 
     const data = (await response.json()) as { error?: { message?: string } };
+    if (response.ok) {
+      console.log("[save-lead] Airtable create OK for", body.email.trim());
+    }
     if (!response.ok) {
+      console.error("[save-lead] Airtable error:", response.status, data.error);
       return NextResponse.json(
         {
           success: false,

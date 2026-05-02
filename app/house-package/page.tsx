@@ -1,19 +1,17 @@
-import type { Metadata } from "next";
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Manrope } from "next/font/google";
 import { HousePackageLeadForm } from "./house-package-lead-form";
+import { useLanguage } from "../components/language-provider";
+import { siteCopy } from "@/lib/i18n/site";
+import type { Lang } from "@/lib/i18n/home-hero";
 
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"]
 });
-
-export const metadata: Metadata = {
-  title: "House & Land Package | D&E Property Pro",
-  description:
-    "Premium house and land package — Melbourne. Modern architecture, investment-grade positioning, immersive 360° experience."
-};
 
 const KUULA_SRC =
   "https://kuula.co/share/collection/7lRH7?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1";
@@ -97,6 +95,9 @@ function OutlineButton({
 }
 
 export default function HousePackagePage() {
+  const { lang } = useLanguage();
+  const H = siteCopy[lang as Lang];
+
   return (
     <main className={`${manrope.className} bg-white text-[#0f172a] antialiased`}>
       {/* 1. Hero */}
@@ -116,20 +117,18 @@ export default function HousePackagePage() {
               D&amp;E Property Pro
             </p>
             <h1 className="mt-6 text-4xl font-light leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Premium House &amp; Land Package
+              {H.house.heroTitle}
             </h1>
             <p className="mt-6 max-w-xl text-lg font-light leading-relaxed text-white/90 sm:text-xl">
-              Designed for modern living and long-term investment in Melbourne
+              {H.house.heroLead}
             </p>
-            <p className="mt-4 text-sm font-light text-[#d4af37]">
-              Limited opportunity in a high-growth suburb
-            </p>
+            <p className="mt-4 text-sm font-light text-[#d4af37]">{H.house.heroTag}</p>
             <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
               <OutlineButton href="#key-information" variant="hero">
-                Get Full Details
+                {H.house.ctaDetails}
               </OutlineButton>
               <OutlineButton href="#experience-360" variant="hero">
-                View 360 Experience
+                {H.house.cta360}
               </OutlineButton>
             </div>
           </div>
@@ -139,12 +138,9 @@ export default function HousePackagePage() {
       {/* 2. Image Gallery */}
       <section className="border-b border-slate-200/80 bg-[#f8f9fa] px-6 py-20 sm:px-12 lg:px-20 lg:py-28">
         <div className="mx-auto max-w-7xl">
-          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-slate-500">Gallery</p>
-          <h2 className="mt-4 text-3xl font-light tracking-tight sm:text-4xl">Crafted spaces, inside and out</h2>
-          <p className="mt-4 max-w-2xl font-light leading-relaxed text-slate-600">
-            A curated sequence of moments — façade, living, kitchen, rest, and retreat — composed like a premium
-            developer sales suite.
-          </p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-slate-500">{H.house.galleryKicker}</p>
+          <h2 className="mt-4 text-3xl font-light tracking-tight sm:text-4xl">{H.house.galleryTitle}</h2>
+          <p className="mt-4 max-w-2xl font-light leading-relaxed text-slate-600">{H.house.galleryBody}</p>
 
           <div className="mt-16 flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-12 md:grid-rows-2 md:gap-5 md:overflow-visible md:pb-0">
             <div className="relative h-[72vw] min-h-[300px] w-[88vw] shrink-0 snap-center overflow-hidden rounded-2xl shadow-[0_24px_60px_-20px_rgba(15,23,42,0.25)] md:col-span-7 md:row-span-2 md:h-[560px] md:w-auto">
