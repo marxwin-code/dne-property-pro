@@ -407,7 +407,8 @@ const enTree = {
     leadLevel: "Lead level",
     salesAdvice: "AI sales advice",
     preferredCity: "Preferred area / city (optional)",
-    budgetHint: "Matching budget ≈ savings × 5",
+    budgetHint: "Indicative max budget ≈ savings × 5 + income × 3",
+    salesInsight: "Sales insight",
     cityPlaceholder: "e.g. Melbourne",
     yes: "Yes",
     no: "No"

@@ -53,11 +53,11 @@ export function HousePackageLeadForm() {
         body: JSON.stringify({
           name,
           email,
-          ownership: "",
-          leadScore: null,
-          leadLevel: "",
-          recommendedProperties: JSON.stringify([{ name: t.house.inquiryRecordName, message }]),
-          source: t.house.leadSource
+          income: 0,
+          savings: 0,
+          ownership: "—",
+          location: message.trim() ? message.trim().slice(0, 500) : t.house.leadSource,
+          score: 0
         })
       });
       const saveLeadData = (await saveLeadRes.json()) as { success?: boolean; message?: string };

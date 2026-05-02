@@ -1,26 +1,41 @@
 import { NextResponse } from "next/server";
+import { withRetry } from "@/lib/retry";
 
 export const runtime = "nodejs";
 
+/** Body accepted from clients — only lowercase fields are sent to Airtable. */
 type SaveLeadBody = {
   name?: string;
   email?: string;
-  age?: number | null;
   income?: number | null;
   savings?: number | null;
-  /** Yes | No */
   ownership?: string;
-  propertyOwnership?: string;
-  leadScore?: number | null;
+  location?: string;
+  score?: number | null;
+  /** Ignored for Airtable (backward compat) */
+  age?: number | null;
   leadLevel?: string;
-  /** JSON string of recommended listings */
   recommendedProperties?: string;
   source?: string;
+  propertyOwnership?: string;
 };
 
-function toNumberOrNull(value: unknown) {
+function toNumberOrNull(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   return null;
+}
+
+/** Airtable field names — must match base columns (all lowercase). */
+function buildAirtableFields(body: SaveLeadBody): Record<string, string | number | null> {
+  return {
+    name: body.name?.trim() || "",
+    email: body.email?.trim() || "",
+    income: toNumberOrNull(body.income),
+    savings: toNumberOrNull(body.savings),
+    ownership: (body.ownership ?? body.propertyOwnership ?? "").trim() || "",
+    location: body.location?.trim() || "",
+    score: toNumberOrNull(body.score)
+  };
 }
 
 export async function POST(req: Request) {
@@ -34,72 +49,45 @@ export async function POST(req: Request) {
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = process.env.AIRTABLE_TABLE_NAME || "Leads";
 
-    console.log("[save-lead] Airtable env check:", {
-      hasApiKey: Boolean(apiKey),
-      hasBaseId: Boolean(baseId),
-      tableName
-    });
-
     if (!apiKey || !baseId) {
-      console.error(
-        "[save-lead] Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID — set these in Vercel environment variables."
-      );
+      console.error("[save-lead] Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID.");
       return NextResponse.json(
         { success: false, message: "Server configuration missing Airtable credentials." },
         { status: 503 }
       );
     }
 
-    const fields: Record<string, string | number | null> = {
-      Name: body.name?.trim() || "",
-      Email: body.email.trim(),
-      Age: toNumberOrNull(body.age),
-      Income: toNumberOrNull(body.income),
-      Savings: toNumberOrNull(body.savings),
-      Ownership: (body.ownership ?? body.propertyOwnership ?? "").trim() || "",
-      LeadScore: toNumberOrNull(body.leadScore),
-      LeadLevel: body.leadLevel?.trim() || "",
-      RecommendedProperties: body.recommendedProperties?.trim() || "",
-      CreatedAt: new Date().toISOString()
-    };
-    if (body.source?.trim()) {
-      fields.Source = body.source.trim();
-    }
+    const fields = buildAirtableFields(body);
+    const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
 
-    const response = await fetch(
-      `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          records: [{ fields }]
-        })
-      }
+    const data = await withRetry(
+      async () => {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            records: [{ fields }]
+          })
+        });
+        const json = (await response.json()) as { error?: { message?: string } };
+        if (!response.ok) {
+          const err = new Error(json.error?.message || `Airtable ${response.status}`);
+          (err as Error & { status?: number }).status = response.status;
+          throw err;
+        }
+        return json;
+      },
+      { attempts: 3, baseDelayMs: 500, label: "save-lead-airtable" }
     );
 
-    const data = (await response.json()) as { error?: { message?: string } };
-    if (response.ok) {
-      console.log("[save-lead] Airtable create OK for", body.email.trim());
-    }
-    if (!response.ok) {
-      console.error("[save-lead] Airtable error:", response.status, data.error);
-      return NextResponse.json(
-        {
-          success: false,
-          message: data.error?.message || "Failed to save lead to Airtable."
-        },
-        { status: 502 }
-      );
-    }
-
+    console.log("[save-lead] Airtable create OK for", body.email.trim(), data);
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Something went wrong, please try again" },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error("[save-lead]", e);
+    const msg = e instanceof Error ? e.message : "Something went wrong, please try again";
+    return NextResponse.json({ success: false, message: msg }, { status: 502 });
   }
 }

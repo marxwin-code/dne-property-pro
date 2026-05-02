@@ -387,7 +387,8 @@ export const zh: SiteText = {
     leadLevel: "客户分级",
     salesAdvice: "AI 销售话术",
     preferredCity: "偏好区域/城市（选填）",
-    budgetHint: "匹配预算 ≈ 存款 × 5",
+    budgetHint: "参考可买预算 ≈ 存款×5 + 年收入×3",
+    salesInsight: "销售建议",
     cityPlaceholder: "例如：Melbourne",
     yes: "是",
     no: "否"

@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { fetchListingsFromAirtable, type AirtableListing } from "@/lib/airtable";
 import {
-  buildSalesAdvice,
-  computeLeadScore,
-  getLeadLevel,
-  recommendPropertiesForBudget,
-  type LeadLevel
-} from "@/lib/lead-engine";
+  buildAiSalesAdvice,
+  computeAiLeadScore,
+  computeMaxBudget,
+  getSalesPitch,
+  matchTopProperties
+} from "@/lib/ai-match-engine";
+import { getLeadLevel, type LeadLevel } from "@/lib/lead-engine";
 import type { Lang } from "@/lib/i18n/text";
 import { LUXURY_LISTING_IMAGES } from "@/lib/luxury-media";
 
@@ -117,11 +118,6 @@ export async function POST(req: Request) {
     const lang: Lang = body.lang === "zh" ? "zh" : "en";
     const cityHint = body.cityHint?.trim();
 
-    const leadScore = computeLeadScore(age, income, savings, hasProperty);
-    const leadLevel: LeadLevel = getLeadLevel(leadScore);
-    const affordability = getAffordability(income);
-    const budgetEstimate = savings * 5;
-
     let listings: AirtableListing[] = await fetchListingsFromAirtable();
     if (listings.length === 0) {
       listings = [
@@ -155,7 +151,12 @@ export async function POST(req: Request) {
       ];
     }
 
-    const recommendedRaw = recommendPropertiesForBudget(listings, savings, cityHint, 3);
+    const leadScore = computeAiLeadScore(income, savings, hasProperty, listings, cityHint);
+    const leadLevel: LeadLevel = getLeadLevel(leadScore);
+    const affordability = getAffordability(income);
+    const budgetEstimate = computeMaxBudget(savings, income);
+
+    const recommendedRaw = matchTopProperties(listings, income, savings, cityHint, 3);
     const recommendedProperties: CompareProperty[] = recommendedRaw.map((l) => ({
       id: l.id,
       name: l.name,
@@ -165,18 +166,20 @@ export async function POST(req: Request) {
       description: l.description || "—"
     }));
 
-    const salesAdvice = buildSalesAdvice(
+    const salesAdvice = buildAiSalesAdvice(
       leadLevel,
       recommendedProperties.map((p) => ({ location: p.location, priceLabel: p.priceLabel })),
       lang
     );
 
+    const salesPitch = getSalesPitch(leadLevel, lang);
+
     const jsonInstruction = `Return ONLY a single JSON object (no markdown) with keys:
-{"summary":"One concise executive sentence (max 35 words).","timing":"now"|"later"|"build_deposit","risks":"2-3 sentences on key risks.","strategy":"A premium advisory paragraph on affordability, timing, and next steps (4-6 sentences).","buyingPower":"One short sentence referencing budget ≈ savings×5 and serviceability."}`;
+{"summary":"One concise executive sentence (max 35 words).","timing":"now"|"later"|"build_deposit","risks":"2-3 sentences on key risks.","strategy":"A premium advisory paragraph on affordability, timing, and next steps (4-6 sentences).","buyingPower":"One short sentence referencing indicative purchase range ≈ savings×5 + income×3 and serviceability."}`;
 
     const prompt = `You are a senior Australian property investment adviser.
 Client: age ${age}, annual income AUD ${income}, savings AUD ${savings}, owns property: ${hasProperty}.
-Lead score (0-100): ${leadScore}. Lead level: ${leadLevel}. Purchase budget indicator (savings×5): ~AUD ${budgetEstimate}.
+Lead score (0-100): ${leadScore}. Lead level: ${leadLevel}. Indicative max purchase budget (savings×5 + income×3): ~AUD ${budgetEstimate.toLocaleString("en-AU")}.
 Affordability band: ${affordability}.
 ${jsonInstruction}`;
 
@@ -207,6 +210,7 @@ ${jsonInstruction}`;
       readinessScore: leadScore,
       dealScore: leadScore,
       salesAdvice,
+      salesPitch,
       budgetEstimate,
       affordability,
       summary: strategy.summary,
