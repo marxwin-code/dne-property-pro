@@ -1,6 +1,6 @@
-/** Default listing image when URL missing or load fails — luxury interior, wide crop. */
+/** Default listing image when URL missing or load fails — https Unsplash (temporary test asset per product spec). */
 export const PROPERTY_IMG_FALLBACK =
-  "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=1600&q=88";
+  "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1600&q=88";
 
 /** Hero first screen — luxury exterior / dusk contrast & lighting. */
 export const HERO_LUXURY_EXTERIOR =

@@ -387,6 +387,7 @@ const enTree = {
     savings: "Current Savings",
     property: "Do you own property?",
     email: "Email",
+    clientName: "Your name",
     submit: "Generate My Report",
     generating: "Generating…",
     success: "Report sent to your email",
@@ -443,7 +444,14 @@ const enTree = {
     upgradeHint: "Subscribe for full breakdown, AI narrative, and recommendations.",
     riskHigh: "High risk",
     riskMedium: "Medium risk",
-    riskLow: "Low risk"
+    riskLow: "Low risk",
+    retrieveSection: "Saved report",
+    retrieveHint: "Enter the email you used — we show your latest stored risk report.",
+    getMyReport: "Get My Report",
+    emailForReport: "Email (for full report delivery)",
+    riskScoreHeading: "Risk score",
+    riskLevelHeading: "Risk level",
+    savedAt: "Saved"
   },
   contact: {
     kicker: "Contact",

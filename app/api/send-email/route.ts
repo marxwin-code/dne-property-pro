@@ -36,7 +36,8 @@ type CompareEmailBody = {
     name: string;
     priceLabel: string;
     location: string;
-    image: string;
+    image_url?: string;
+    image?: string;
     description?: string;
   }>;
 };
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
         name: p.name,
         priceLabel: p.priceLabel,
         location: p.location,
-        image: p.image,
+        image: p.image_url ?? p.image ?? "",
         description: p.description
       }));
 

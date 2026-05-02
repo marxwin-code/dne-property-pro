@@ -11,7 +11,8 @@ type Listing = {
   name: string;
   priceLabel: string;
   location: string;
-  image: string;
+  image_url: string;
+  image?: string;
   description: string;
 };
 
@@ -66,7 +67,8 @@ export default function PropertiesPage() {
                 name={item.name}
                 priceLabel={item.priceLabel}
                 location={item.location}
-                image={item.image || undefined}
+                image_url={item.image_url}
+                image={item.image}
                 description={item.description}
                 ctaHref="/contact"
                 ctaLabel={t.common.bookConsultation}

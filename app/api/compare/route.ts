@@ -82,6 +82,8 @@ export type CompareProperty = {
   name: string;
   priceLabel: string;
   location: string;
+  image_url: string;
+  /** @deprecated use image_url */
   image: string;
   description: string;
 };
@@ -127,6 +129,7 @@ export async function POST(req: Request) {
           price: 620_000,
           priceLabel: "$620,000",
           location: "Melbourne growth corridor",
+          image_url: LUXURY_LISTING_IMAGES.architectural,
           image: LUXURY_LISTING_IMAGES.architectural,
           description: "Turnkey package suited to owner-occupiers and investors seeking land upside."
         },
@@ -136,6 +139,7 @@ export async function POST(req: Request) {
           price: 580_000,
           priceLabel: "$580,000",
           location: "Inner south-east",
+          image_url: LUXURY_LISTING_IMAGES.living,
           image: LUXURY_LISTING_IMAGES.living,
           description: "Low-maintenance layout with strong rental appeal."
         },
@@ -145,6 +149,7 @@ export async function POST(req: Request) {
           price: 640_000,
           priceLabel: "$640,000",
           location: "Established schools precinct",
+          image_url: LUXURY_LISTING_IMAGES.exterior,
           image: LUXURY_LISTING_IMAGES.exterior,
           description: "Four-bedroom stock aligned with family rental demand."
         }
@@ -162,6 +167,7 @@ export async function POST(req: Request) {
       name: l.name,
       priceLabel: l.priceLabel,
       location: l.location,
+      image_url: l.image_url,
       image: l.image,
       description: l.description || "—"
     }));

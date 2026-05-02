@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
         pathname: "/**"
       }
-    ]
+    ],
+    // Legacy/hostinger setups still reference `domains`; Unsplash must load for listing previews.
+    domains: ["images.unsplash.com"]
   },
   turbopack: {
     root: process.cwd()

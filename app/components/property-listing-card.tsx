@@ -9,7 +9,9 @@ export type PropertyListingCardProps = {
   name: string;
   priceLabel: string;
   location: string;
-  image: string | null | undefined;
+  /** Preferred: Airtable `image_url` */
+  image_url?: string | null | undefined;
+  image?: string | null | undefined;
   description?: string;
   ctaHref?: string;
   ctaLabel?: string;
@@ -20,12 +22,14 @@ export function PropertyListingCard({
   name,
   priceLabel,
   location,
+  image_url,
   image,
   description,
   ctaHref = "/contact",
   ctaLabel
 }: PropertyListingCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const cover = image_url ?? image;
 
   return (
     <article
@@ -39,7 +43,8 @@ export function PropertyListingCard({
           />
         ) : null}
         <RemoteImg
-          src={image}
+          src={cover}
+          fallbackSrc="/placeholder.jpg"
           alt={name}
           className="h-full w-full scale-100 object-cover transition-transform duration-300 ease-out group-hover:scale-105"
           onLoad={() => setImgLoaded(true)}

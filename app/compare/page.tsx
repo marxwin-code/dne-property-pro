@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useLanguage } from "../components/language-provider";
-import { PropertyListingCard } from "../components/property-listing-card";
+import { ReportPropertyCard } from "../components/report-property-card";
 import type { Lang } from "@/lib/i18n/text";
 import { useSiteText } from "@/lib/i18n/use-site-text";
 
 type LeadLevel = "Hot" | "Warm" | "Cold";
 
 type CompareForm = {
+  name: string;
   age: string;
   income: string;
   savings: string;
@@ -23,7 +23,8 @@ type Rec = {
   name: string;
   priceLabel: string;
   location: string;
-  image: string;
+  image_url: string;
+  image?: string;
   description: string;
 };
 
@@ -45,6 +46,7 @@ type CompareResult = {
 };
 
 const initialForm: CompareForm = {
+  name: "",
   age: "",
   income: "",
   savings: "",
@@ -63,6 +65,7 @@ export default function ComparePage() {
   const [feedback, setFeedback] = useState("");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [submitted, setSubmitted] = useState<{
+    name: string;
     age: string;
     income: string;
     savings: string;
@@ -117,7 +120,15 @@ export default function ComparePage() {
         strategy?: string;
         timing?: string;
         timingLabel?: string;
-        recommendedProperties?: Rec[];
+        recommendedProperties?: Array<{
+          id?: string;
+          name?: string;
+          priceLabel?: string;
+          location?: string;
+          image_url?: string;
+          image?: string;
+          description?: string;
+        }>;
         salesAdvice?: string;
         salesPitch?: string;
         budgetEstimate?: number;
@@ -128,6 +139,20 @@ export default function ComparePage() {
         setFeedback(compareData.message ?? E.genericTryAgain);
         return;
       }
+
+      const rawRecs = compareData.recommendedProperties ?? [];
+      const normalizedRecs: Rec[] = rawRecs.map((p) => {
+        const img = p.image_url ?? p.image ?? "";
+        return {
+          id: p.id ?? "",
+          name: p.name ?? "",
+          priceLabel: p.priceLabel ?? "",
+          location: p.location ?? "",
+          image_url: img,
+          image: img,
+          description: p.description ?? ""
+        };
+      });
 
       const compareResult: CompareResult = {
         report: compareData.report ?? "",
@@ -140,7 +165,7 @@ export default function ComparePage() {
         strategy: compareData.strategy ?? "",
         timingLabel: compareData.timingLabel ?? "",
         timing: compareData.timing ?? "",
-        recommendedProperties: compareData.recommendedProperties ?? [],
+        recommendedProperties: normalizedRecs,
         salesAdvice: compareData.salesAdvice ?? "",
         salesPitch: compareData.salesPitch ?? "",
         budgetEstimate: compareData.budgetEstimate ?? 0
@@ -184,7 +209,7 @@ export default function ComparePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: "",
+          name: form.name.trim(),
           email: payload.email,
           income: payload.income,
           savings: payload.savings,
@@ -204,6 +229,7 @@ export default function ComparePage() {
       setStatus("success");
       setFeedback(L.success);
       setSubmitted({
+        name: form.name.trim(),
         age: form.age,
         income: form.income,
         savings: form.savings,
@@ -229,6 +255,17 @@ export default function ComparePage() {
 
       <section className="mx-auto mt-10 max-w-xl rounded-2xl border border-sky-900/50 bg-[#0f172a]/80 p-6 shadow-xl backdrop-blur sm:p-8">
         <form className="grid gap-4 text-left" onSubmit={onSubmit}>
+          <label className="text-sm font-medium text-slate-300">
+            {L.clientName}
+            <input
+              required
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
+            />
+          </label>
+
           <label className="text-sm font-medium text-slate-300">
             {L.age}
             <input
@@ -321,27 +358,31 @@ export default function ComparePage() {
       {result ? (
         <div className="mx-auto mt-12 max-w-4xl space-y-8">
           <div className="rounded-2xl border border-sky-900/50 bg-[#0f172a]/90 p-8 shadow-xl">
-            <h2 className="border-b border-sky-900/60 pb-4 text-xl font-bold text-white">{L.reportTitle}</h2>
-
-            <div className="mt-8 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.score}</p>
-              <div className="flex flex-wrap items-end gap-4">
-                <span className="text-5xl font-extrabold text-white">{result.leadScore}</span>
-                <span className="pb-2 text-xl text-slate-500">/100</span>
+            <header className="border-b border-sky-900/60 pb-6 text-center">
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">AI Property Report</h1>
+              <p className="mt-3 text-base text-slate-400">Your personalized investment analysis</p>
+              <div className="mt-8 flex flex-wrap items-end justify-center gap-4">
+                <p className="text-lg font-medium text-slate-200">
+                  Score:{" "}
+                  <span className="text-4xl font-extrabold text-white">{result.leadScore}</span>
+                  <span className="text-xl text-slate-500"> / 100</span>
+                </p>
                 <span
                   className={`rounded-full border px-3 py-1 text-xs font-semibold ${leadBadgeClass(result.leadLevel)}`}
                 >
                   {L.leadLevel}: {leadLabel(result.leadLevel)}
                 </span>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
+              <div className="mx-auto mt-6 h-3 max-w-xl overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400 transition-all duration-700"
                   style={{ width: `${scorePct}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-500">{L.budgetHint}: ~${result.budgetEstimate.toLocaleString("en-AU")}</p>
-            </div>
+              <p className="mt-4 text-xs text-slate-500">
+                {L.budgetHint}: ~${result.budgetEstimate.toLocaleString("en-AU")}
+              </p>
+            </header>
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.summary}</p>
@@ -366,6 +407,7 @@ export default function ComparePage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.snapshot}</p>
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 {[
+                  [L.clientName, submitted?.name || "—"],
                   [L.age, submitted?.age || "—"],
                   [L.income, payloadNums(submitted?.income)],
                   [L.savings, payloadNums(submitted?.savings)],
@@ -400,34 +442,17 @@ export default function ComparePage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.recommended}</p>
               <div className="mt-6 grid gap-10 md:grid-cols-3">
                 {result.recommendedProperties.map((p) => (
-                  <PropertyListingCard
+                  <ReportPropertyCard
                     key={p.id}
-                    id={p.id}
                     name={p.name}
                     priceLabel={p.priceLabel}
                     location={p.location}
-                    image={p.image}
-                    description={p.description}
-                    ctaHref="/contact"
-                    ctaLabel={t.common.bookConsultation}
+                    image_url={p.image_url}
+                    viewMatchingLabel="View Matching Properties"
+                    bookLabel="Book Consultation"
                   />
                 ))}
               </div>
-            </div>
-
-            <div className="mt-10 flex flex-col gap-4 border-t border-sky-900/50 pt-8 sm:flex-row sm:justify-center">
-              <Link
-                href="/properties"
-                className="inline-flex justify-center rounded-full bg-brand-600 px-8 py-3 text-sm font-semibold text-white transition hover:bg-brand-700"
-              >
-                {L.viewProps}
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex justify-center rounded-full border-2 border-sky-400 px-8 py-3 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/10"
-              >
-                {L.book}
-              </Link>
             </div>
           </div>
         </div>
