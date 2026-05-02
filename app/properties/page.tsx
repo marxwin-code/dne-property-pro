@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PropertyListingCard } from "../components/property-listing-card";
 import { PropertyListingCardSkeleton } from "../components/property-listing-card-skeleton";
-import { useLanguage } from "../components/language-provider";
-import { siteCopy } from "@/lib/i18n/site";
-import type { Lang } from "@/lib/i18n/home-hero";
+import { useSiteText } from "@/lib/i18n/use-site-text";
 
 type Listing = {
   id: string;
@@ -18,8 +16,8 @@ type Listing = {
 };
 
 export default function PropertiesPage() {
-  const { lang } = useLanguage();
-  const L = siteCopy[lang as Lang];
+  const t = useSiteText();
+  const L = t.properties;
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,18 +40,12 @@ export default function PropertiesPage() {
     };
   }, []);
 
-  const ctaLabel = lang === "zh" ? "预约咨询" : "Book consultation";
-
   return (
     <main className="min-h-screen bg-[#060a14] text-slate-100">
       <section className="border-b border-white/10 px-4 py-16 text-center sm:py-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200/90">
-          {L.properties.kicker}
-        </p>
-        <h1 className="mt-3 font-semibold tracking-tight text-white sm:text-5xl text-4xl">
-          {L.properties.title}
-        </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-slate-400">{L.properties.subtitle}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200/90">{L.kicker}</p>
+        <h1 className="mt-3 font-semibold tracking-tight text-white sm:text-5xl text-4xl">{L.title}</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-slate-400">{L.subtitle}</p>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-14 sm:py-18">
@@ -64,7 +56,7 @@ export default function PropertiesPage() {
             ))}
           </div>
         ) : listings.length === 0 ? (
-          <p className="text-center text-slate-500">{L.properties.empty}</p>
+          <p className="text-center text-slate-500">{L.empty}</p>
         ) : (
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
             {listings.map((item) => (
@@ -77,7 +69,7 @@ export default function PropertiesPage() {
                 image={item.image || undefined}
                 description={item.description}
                 ctaHref="/contact"
-                ctaLabel={ctaLabel}
+                ctaLabel={t.common.bookConsultation}
               />
             ))}
           </div>
@@ -89,7 +81,7 @@ export default function PropertiesPage() {
           href="/contact"
           className="text-sm font-medium text-amber-200/90 underline-offset-4 transition hover:text-white hover:underline"
         >
-          {lang === "zh" ? "私人咨询预约 →" : "Private consultation →"}
+          {L.footerConsultation}
         </Link>
       </section>
     </main>

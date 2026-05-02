@@ -8,7 +8,7 @@ import {
   recommendPropertiesForBudget,
   type LeadLevel
 } from "@/lib/lead-engine";
-import type { Lang } from "@/lib/i18n/home-hero";
+import type { Lang } from "@/lib/i18n/text";
 import { LUXURY_LISTING_IMAGES } from "@/lib/luxury-media";
 
 export const runtime = "nodejs";

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useLanguage } from "../components/language-provider";
 import { PropertyListingCard } from "../components/property-listing-card";
-import { siteCopy } from "@/lib/i18n/site";
-import type { Lang } from "@/lib/i18n/home-hero";
+import type { Lang } from "@/lib/i18n/text";
+import { useSiteText } from "@/lib/i18n/use-site-text";
 
 type LeadLevel = "Hot" | "Warm" | "Cold";
 
@@ -54,7 +54,9 @@ const initialForm: CompareForm = {
 
 export default function ComparePage() {
   const { lang } = useLanguage();
-  const L = siteCopy[lang as Lang].compare;
+  const t = useSiteText();
+  const L = t.compare;
+  const E = t.errors;
   const [form, setForm] = useState<CompareForm>(initialForm);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [feedback, setFeedback] = useState("");
@@ -121,7 +123,7 @@ export default function ComparePage() {
 
       if (!compareResponse.ok || compareData.success !== true) {
         setStatus("error");
-        setFeedback(compareData.message ?? "Something went wrong, please try again");
+        setFeedback(compareData.message ?? E.genericTryAgain);
         return;
       }
 
@@ -169,7 +171,7 @@ export default function ComparePage() {
       const emailData = (await emailResponse.json()) as { success?: boolean; message?: string };
       if (!emailResponse.ok || emailData.success !== true) {
         setStatus("error");
-        setFeedback(emailData.message ?? "Something went wrong, please try again");
+        setFeedback(emailData.message ?? E.genericTryAgain);
         return;
       }
 
@@ -199,7 +201,7 @@ export default function ComparePage() {
       const saveLeadData = (await saveLeadResponse.json()) as { success?: boolean; message?: string };
       if (!saveLeadResponse.ok || saveLeadData.success !== true) {
         setStatus("error");
-        setFeedback(saveLeadData.message ?? "Something went wrong, please try again");
+        setFeedback(saveLeadData.message ?? E.genericTryAgain);
         return;
       }
 
@@ -215,7 +217,7 @@ export default function ComparePage() {
       setForm(initialForm);
     } catch {
       setStatus("error");
-      setFeedback("Something went wrong, please try again");
+      setFeedback(E.genericTryAgain);
     }
   };
 
@@ -224,7 +226,7 @@ export default function ComparePage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] px-4 py-14 text-slate-100 sm:py-20">
       <div className="mx-auto max-w-3xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-400">Compare AI</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-400">{L.pageKicker}</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{L.title}</h1>
         <p className="mt-3 text-base text-slate-400">{L.subtitle}</p>
       </div>
@@ -285,7 +287,7 @@ export default function ComparePage() {
               type="text"
               value={form.cityHint}
               onChange={(e) => setForm({ ...form, cityHint: e.target.value })}
-              placeholder={lang === "zh" ? "例如：Melbourne" : "e.g. Melbourne"}
+              placeholder={L.cityPlaceholder}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
             />
           </label>
@@ -315,7 +317,7 @@ export default function ComparePage() {
         ) : null}
         {status === "error" ? (
           <p className="mt-6 text-center text-sm font-medium text-rose-400">
-            {feedback || "Something went wrong, please try again"}
+            {feedback || E.genericTryAgain}
           </p>
         ) : null}
       </section>
@@ -404,7 +406,7 @@ export default function ComparePage() {
                     image={p.image}
                     description={p.description}
                     ctaHref="/contact"
-                    ctaLabel={lang === "zh" ? "预约咨询" : "Book consultation"}
+                    ctaLabel={t.common.bookConsultation}
                   />
                 ))}
               </div>

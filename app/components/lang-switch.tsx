@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "./language-provider";
-import type { Lang } from "@/lib/i18n/home-hero";
+import type { Lang } from "@/lib/i18n/text";
 
 function switchLang(l: Lang) {
   localStorage.setItem("lang", l);

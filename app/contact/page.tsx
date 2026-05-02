@@ -2,22 +2,21 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useLanguage } from "../components/language-provider";
-import { siteCopy } from "@/lib/i18n/site";
-import type { Lang } from "@/lib/i18n/home-hero";
+import { useSiteText } from "@/lib/i18n/use-site-text";
 
 const fieldClass =
   "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:shadow-[0_0_0_3px_rgba(37,99,235,0.15)]";
 
 export default function ContactPage() {
-  const { lang } = useLanguage();
-  const C = siteCopy[lang as Lang].contact;
+  const t = useSiteText();
+  const C = t.contact;
+  const E = t.errors;
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
-    propertyType: "Residential",
+    propertyType: t.common.residential,
     message: ""
   });
 
@@ -42,19 +41,19 @@ export default function ContactPage() {
         data = (await res.json()) as typeof data;
       } catch {
         setStatus("error");
-        setErrorDetail(lang === "zh" ? "服务器响应无效。" : "Invalid response from server.");
+        setErrorDetail(E.invalidResponse);
         return;
       }
 
       if (!res.ok) {
         setStatus("error");
-        setErrorDetail(data.message ?? `Request failed (${res.status}).`);
+        setErrorDetail(data.message ?? E.genericTryAgain);
         return;
       }
 
       if (data.success !== true) {
         setStatus("error");
-        setErrorDetail(data.message ?? "The server did not confirm delivery.");
+        setErrorDetail(data.message ?? E.serverNoConfirm);
         return;
       }
 
@@ -62,14 +61,16 @@ export default function ContactPage() {
       setForm({
         name: "",
         email: "",
-        propertyType: "Residential",
+        propertyType: t.common.residential,
         message: ""
       });
     } catch {
       setStatus("error");
-      setErrorDetail(lang === "zh" ? "网络错误，请检查连接后重试。" : "Network error. Check your connection and try again.");
+      setErrorDetail(E.networkError);
     }
   };
+
+  const propertyOptions = [t.common.residential, t.common.commercial];
 
   return (
     <main className="w-full bg-gradient-to-b from-slate-100 via-slate-200/90 to-slate-100">
@@ -154,8 +155,11 @@ export default function ContactPage() {
                   onChange={(e) => setForm({ ...form, propertyType: e.target.value })}
                   className={fieldClass}
                 >
-                  <option value="Residential">Residential</option>
-                  <option value="Commercial">Commercial</option>
+                  {propertyOptions.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -186,11 +190,11 @@ export default function ContactPage() {
                 <p className="font-medium">{C.errorTitle}</p>
                 {errorDetail ? <p className="mt-1 text-rose-700">{errorDetail}</p> : null}
                 <p className="mt-2 text-rose-700">
-                  You can also email{" "}
+                  {C.errorEmailIntro}
                   <a href="mailto:info@depropertypro.com" className="font-semibold underline">
                     info@depropertypro.com
-                  </a>{" "}
-                  directly.
+                  </a>
+                  {C.errorEmailOutro}
                 </p>
               </div>
             ) : null}
