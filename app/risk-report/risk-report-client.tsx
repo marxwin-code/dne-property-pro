@@ -277,8 +277,8 @@ export function RiskReportClient() {
             <input
               required
               type="number"
-              min="0"
-              step="1000"
+              min="0.01"
+              step="any"
               value={form.income}
               onChange={(e) => setForm({ ...form, income: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
@@ -291,7 +291,7 @@ export function RiskReportClient() {
               required
               type="number"
               min="0"
-              step="1000"
+              step="any"
               value={form.savings}
               onChange={(e) => setForm({ ...form, savings: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
@@ -326,8 +326,8 @@ export function RiskReportClient() {
             <input
               required
               type="number"
-              min="0"
-              step="5000"
+              min="0.01"
+              step="any"
               value={form.propPrice}
               onChange={(e) => setForm({ ...form, propPrice: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"

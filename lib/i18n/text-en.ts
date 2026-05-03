@@ -388,6 +388,7 @@ const enTree = {
     property: "Do you own property?",
     email: "Email",
     clientName: "Your name",
+    debtOptional: "Total debt (AUD, optional)",
     submit: "Generate My Report",
     generating: "Generating…",
     success: "Report sent to your email",

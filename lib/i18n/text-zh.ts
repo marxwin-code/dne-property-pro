@@ -368,6 +368,7 @@ export const zh: SiteText = {
     property: "是否已有房产？",
     email: "邮箱",
     clientName: "姓名",
+    debtOptional: "负债总额（澳元，选填）",
     submit: "生成我的报告",
     generating: "生成中…",
     success: "报告已发送至您的邮箱",
