@@ -1,11 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSiteText } from "@/lib/i18n/use-site-text";
 import { fillTemplate } from "@/lib/i18n/fill-template";
+import {
+  getUltimateFallbackSrc,
+  type PersonalityResultKey,
+  PERSONALITY_IMAGE_FALLBACK,
+  resolvePersonalityImageSrc
+} from "@/lib/personality-images";
 
-type Option = "A" | "B" | "C" | "D";
+type Option = PersonalityResultKey;
 type Stage = "landing" | "quiz" | "result";
 
 export default function PersonalityPage() {
@@ -33,6 +39,14 @@ export default function PersonalityPage() {
   }, [answers]);
 
   const result = profiles[resultKey];
+  const primaryImageSrc = resolvePersonalityImageSrc(resultKey, result.image);
+  const [heroSrc, setHeroSrc] = useState(primaryImageSrc);
+  const [heroLoaded, setHeroLoaded] = useState(false);
+
+  useEffect(() => {
+    setHeroSrc(primaryImageSrc);
+    setHeroLoaded(false);
+  }, [primaryImageSrc, resultKey]);
 
   const handleAnswer = (option: Option) => {
     setAnswers((prev) => {
@@ -146,13 +160,33 @@ export default function PersonalityPage() {
 
           {stage === "result" && (
             <div className="text-center transition-all duration-300">
-              <Image
-                src={result.image}
-                alt={result.title}
-                width={320}
-                height={320}
-                className="mx-auto rounded-xl shadow-xl"
-              />
+              <div className="relative mx-auto aspect-video w-full max-w-xl overflow-hidden rounded-xl bg-white/5 shadow-xl ring-1 ring-white/10">
+                {!heroLoaded && (
+                  <div
+                    className="absolute inset-0 z-10 animate-pulse bg-gradient-to-br from-slate-700/80 via-slate-800/60 to-slate-900/80 backdrop-blur-[2px]"
+                    aria-hidden
+                  />
+                )}
+                <Image
+                  key={`${resultKey}-${heroSrc}`}
+                  src={heroSrc}
+                  alt={result.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 576px"
+                  className={`object-cover transition-opacity duration-500 ${
+                    heroLoaded ? "opacity-100" : "opacity-0"
+                  }`}
+                  onLoad={() => setHeroLoaded(true)}
+                  onError={() => {
+                    setHeroLoaded(true);
+                    setHeroSrc((prev) => {
+                      const tier = PERSONALITY_IMAGE_FALLBACK[resultKey];
+                      if (prev === tier) return getUltimateFallbackSrc();
+                      return tier;
+                    });
+                  }}
+                />
+              </div>
               <h3 className="mt-6 text-2xl font-semibold text-white sm:text-3xl">{result.title}</h3>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
                 {result.description}
