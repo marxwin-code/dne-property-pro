@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next build"
+    "lint": "next build",
+    "seed:airtable-properties": "node scripts/seed-airtable-properties.mjs"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",

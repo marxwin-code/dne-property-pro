@@ -4,7 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { fetchListingsFromAirtable, type AirtableListing } from "@/lib/airtable";
+import { fetchListingsFromAirtable, makeFallbackAirtableListing, type AirtableListing } from "@/lib/airtable";
 import {
   buildAiSalesAdvice,
   computeMaxBudget,
@@ -144,36 +144,31 @@ export async function POST(req: Request) {
     let listings: AirtableListing[] = await fetchListingsFromAirtable();
     if (listings.length === 0) {
       listings = [
-        {
+        makeFallbackAirtableListing({
           id: "fallback-1",
           name: "Premium House & Land — West corridor",
           price: 620_000,
-          priceLabel: "$620,000",
           location: "Melbourne growth corridor",
           image_url: LUXURY_LISTING_IMAGES.architectural,
-          image: LUXURY_LISTING_IMAGES.architectural,
           description: "Turnkey package suited to owner-occupiers and investors seeking land upside."
-        },
-        {
+        }),
+        makeFallbackAirtableListing({
           id: "fallback-2",
           name: "Designer Town Residence",
           price: 580_000,
-          priceLabel: "$580,000",
           location: "Inner south-east",
           image_url: LUXURY_LISTING_IMAGES.living,
-          image: LUXURY_LISTING_IMAGES.living,
-          description: "Low-maintenance layout with strong rental appeal."
-        },
-        {
+          description: "Low-maintenance layout with strong rental appeal.",
+          region: "South East"
+        }),
+        makeFallbackAirtableListing({
           id: "fallback-3",
           name: "Family Home & Land",
           price: 640_000,
-          priceLabel: "$640,000",
           location: "Established schools precinct",
           image_url: LUXURY_LISTING_IMAGES.exterior,
-          image: LUXURY_LISTING_IMAGES.exterior,
           description: "Four-bedroom stock aligned with family rental demand."
-        }
+        })
       ];
     }
 
