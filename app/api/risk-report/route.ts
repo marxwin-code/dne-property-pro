@@ -9,6 +9,9 @@ import { sendRiskReportToInbox } from "@/lib/risk-report-email";
 
 export const runtime = "nodejs";
 
+/** User-facing copy — never expose Airtable token/table errors (403, INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND, etc.). */
+const REPORT_FAILED_MSG = "Report generation failed. Please try again.";
+
 function isValidEmail(email: string): boolean {
   return /\S+@\S+\.\S+/.test(email.trim());
 }
@@ -84,28 +87,16 @@ function parseBody(
 export async function POST(req: Request) {
   try {
     const json = await req.json();
+    console.log("DATA:", json);
     const parsed = parseBody(json);
 
     if (!parsed) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid input. Required: income, savings, location (or userLocation), property: { price, location, type }. Full tier also requires a valid email. Optional: ownership, tier (free|full), lang (en|zh)."
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: REPORT_FAILED_MSG }, { status: 400 });
     }
 
     if (parsed.tier === "full") {
       if (!parsed.email || !isValidEmail(parsed.email)) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "A valid email is required for the full risk report (delivery + saved copy)."
-          },
-          { status: 400 }
-        );
+        return NextResponse.json({ success: false, message: REPORT_FAILED_MSG }, { status: 400 });
       }
     }
 
@@ -122,6 +113,19 @@ export async function POST(req: Request) {
       });
     }
 
+    // Full report: always return scored result to the client. Persist + email are best-effort (403 = fix token/base/table in Airtable).
+    const fullResponse = {
+      success: true as const,
+      tier: "full" as const,
+      risk_score: result.risk_score,
+      risk_level: result.risk_level,
+      risk_breakdown: result.risk_breakdown,
+      ai_summary: result.ai_summary,
+      ai_summary_en: result.ai_summary_en,
+      recommendation: result.recommendation,
+      recommendation_en: result.recommendation_en
+    };
+
     try {
       await createRiskReportRecord({
         email: parsed.email!,
@@ -134,17 +138,7 @@ export async function POST(req: Request) {
         recommendation_en: result.recommendation_en
       });
     } catch (err) {
-      console.error("[risk-report] Airtable persist failed:", err);
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            err instanceof Error
-              ? err.message
-              : "Could not save the risk report. Check Airtable risk_reports table and env."
-        },
-        { status: 502 }
-      );
+      console.error("[risk-report] Airtable persist failed (non-blocking):", err);
     }
 
     try {
@@ -159,33 +153,12 @@ export async function POST(req: Request) {
         lang: parsed.lang
       });
     } catch (err) {
-      console.error("[risk-report] Email send failed:", err);
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            err instanceof Error ? err.message : "Report was saved but email could not be sent."
-        },
-        { status: 502 }
-      );
+      console.error("[risk-report] Email send failed (non-blocking):", err);
     }
 
-    return NextResponse.json({
-      success: true,
-      tier: "full" as const,
-      risk_score: result.risk_score,
-      risk_level: result.risk_level,
-      risk_breakdown: result.risk_breakdown,
-      ai_summary: result.ai_summary,
-      ai_summary_en: result.ai_summary_en,
-      recommendation: result.recommendation,
-      recommendation_en: result.recommendation_en
-    });
+    return NextResponse.json(fullResponse);
   } catch (e) {
     console.error("[risk-report]", e);
-    return NextResponse.json(
-      { success: false, message: "Something went wrong, please try again." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: REPORT_FAILED_MSG }, { status: 500 });
   }
 }

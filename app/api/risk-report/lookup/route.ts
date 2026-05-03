@@ -36,6 +36,9 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     console.error("[risk-report/lookup]", e);
-    return NextResponse.json({ success: false, message: "Lookup failed." }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Report generation failed. Please try again." },
+      { status: 500 }
+    );
   }
 }
