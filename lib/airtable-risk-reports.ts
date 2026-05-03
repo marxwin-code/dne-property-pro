@@ -3,6 +3,9 @@ import { getAirtableEnv } from "./airtable";
 
 /**
  * Base table: `risk_reports` (override with AIRTABLE_RISK_REPORTS_TABLE_NAME).
+ * If you see 403 / INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND: the personal access token must
+ * have `data.records:read` + `data.records:write` for the **entire** base (or this table),
+ * and `AIRTABLE_BASE_ID` + table name must match the UI exactly (names are case-sensitive).
  * All field names lowercase: email, score, risk_level, financial_risk, cashflow_risk,
  * location_risk, property_risk, liquidity_risk, summary, created_at
  *
@@ -62,6 +65,8 @@ export async function createRiskReportRecord(input: RiskReportRowInput): Promise
   }
 
   const table = getRiskReportTableName();
+  console.log("BASE:", baseId);
+  console.log("TABLE:", table);
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(table)}`;
   const b = input.risk_breakdown;
   const fields: Record<string, string | number> = {
@@ -78,7 +83,8 @@ export async function createRiskReportRecord(input: RiskReportRowInput): Promise
   };
 
   const payload = { records: [{ fields }] };
-  console.log("Airtable risk_reports payload:", JSON.stringify({ table, email: fields.email, score: fields.score }));
+  console.log("DATA:", fields);
+  console.log("Airtable risk_reports write:", JSON.stringify({ table, email: fields.email, score: fields.score }));
 
   const res = await fetch(url, {
     method: "POST",
@@ -125,6 +131,8 @@ export async function findLatestRiskReportByEmail(
   if (!normalized) return null;
 
   const table = getRiskReportTableName();
+  console.log("BASE:", baseId);
+  console.log("TABLE:", table);
   const formula = `{email}="${escapeFormulaString(normalized)}"`;
   const qs = new URLSearchParams({ filterByFormula: formula, maxRecords: "30" });
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(table)}?${qs.toString()}`;
