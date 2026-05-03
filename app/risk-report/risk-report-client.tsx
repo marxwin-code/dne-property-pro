@@ -6,61 +6,35 @@ import { useLanguage } from "../components/language-provider";
 import type { Lang } from "@/lib/i18n/text";
 import { useSiteText } from "@/lib/i18n/use-site-text";
 
-type AxisRisk = "Low" | "Medium" | "High";
-
-type RiskBreakdown = {
-  financial: AxisRisk;
-  cashflow: AxisRisk;
-  location: AxisRisk;
-  property: AxisRisk;
-  liquidity: AxisRisk;
+type CatalogRow = {
+  id: string;
+  name: string;
+  price: number;
+  location: string;
+  image_url: string;
+  description: string;
 };
 
-type FullResult = {
-  risk_score: number;
+type ReportResult = {
+  score: number;
   risk_level: string;
-  risk_breakdown: RiskBreakdown;
-  ai_summary: string;
-  ai_summary_en: string;
-  recommendation: string;
-  recommendation_en: string;
+  summary: string;
+  recommended_properties: CatalogRow[];
   created_at?: string;
 };
 
-type FreeResult = {
-  risk_score: number;
-  risk_level: string;
-  message?: string;
-};
-
 const initialForm = {
+  name: "",
   income: "",
   savings: "",
-  ownership: "No" as "Yes" | "No",
-  userLocation: "",
-  propPrice: "",
-  propLocation: "",
-  propType: "apartment" as "apartment" | "house"
+  ownership: "no" as "yes" | "no",
+  location: ""
 };
 
-function axisClass(level: AxisRisk): string {
-  if (level === "High") return "text-rose-300 border-rose-500/40 bg-rose-500/10";
-  if (level === "Medium") return "text-amber-200 border-amber-500/40 bg-amber-500/10";
-  return "text-emerald-300 border-emerald-500/40 bg-emerald-500/10";
-}
-
-function axisLabel(
-  level: AxisRisk,
-  R: { riskHigh: string; riskMedium: string; riskLow: string }
-): string {
-  if (level === "High") return R.riskHigh;
-  if (level === "Medium") return R.riskMedium;
-  return R.riskLow;
-}
-
 function levelBadgeClass(level: string): string {
-  if (level.startsWith("Low")) return "border-emerald-500/50 bg-emerald-500/15 text-emerald-200";
-  if (level.startsWith("Medium")) return "border-amber-500/50 bg-amber-500/15 text-amber-200";
+  const l = level.toLowerCase();
+  if (l === "low") return "border-emerald-500/50 bg-emerald-500/15 text-emerald-200";
+  if (l === "medium") return "border-amber-500/50 bg-amber-500/15 text-amber-200";
   return "border-rose-500/50 bg-rose-500/15 text-rose-200";
 }
 
@@ -73,13 +47,11 @@ export function RiskReportClient() {
 
   const [userEmail, setUserEmail] = useState("");
   const [form, setForm] = useState(initialForm);
-  const [tierFree, setTierFree] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [lookupStatus, setLookupStatus] = useState<"idle" | "loading" | "error">("idle");
   const [feedback, setFeedback] = useState("");
   const [lookupFeedback, setLookupFeedback] = useState("");
-  const [fullResult, setFullResult] = useState<FullResult | null>(null);
-  const [freeResult, setFreeResult] = useState<FreeResult | null>(null);
+  const [result, setResult] = useState<ReportResult | null>(null);
 
   const runLookup = useCallback(
     async (email: string) => {
@@ -92,24 +64,20 @@ export function RiskReportClient() {
       setLookupStatus("loading");
       setLookupFeedback("");
       try {
-        const res = await fetch(`/api/risk-report/lookup?email=${encodeURIComponent(e)}`);
+        const q = new URLSearchParams({ email: e });
+        if (lang === "zh") q.set("lang", "zh");
+        const res = await fetch(`/api/risk-report?${q.toString()}`);
         const data = (await res.json()) as Record<string, unknown>;
         if (!res.ok || data.success !== true) {
           setLookupStatus("error");
-          setLookupFeedback(
-            typeof data.message === "string" ? data.message : "No report found for this email."
-          );
+          setLookupFeedback(typeof data.message === "string" ? data.message : E.genericTryAgain);
           return;
         }
-        setFreeResult(null);
-        setFullResult({
-          risk_score: data.risk_score as number,
-          risk_level: data.risk_level as string,
-          risk_breakdown: data.risk_breakdown as RiskBreakdown,
-          ai_summary: data.ai_summary as string,
-          ai_summary_en: data.ai_summary_en as string,
-          recommendation: data.recommendation as string,
-          recommendation_en: data.recommendation_en as string,
+        setResult({
+          score: data.score as number,
+          risk_level: String(data.risk_level ?? ""),
+          summary: String(data.summary ?? ""),
+          recommended_properties: (data.recommended_properties as CatalogRow[]) ?? [],
           created_at: typeof data.created_at === "string" ? data.created_at : undefined
         });
         setLookupStatus("idle");
@@ -118,7 +86,7 @@ export function RiskReportClient() {
         setLookupFeedback(E.networkError);
       }
     },
-    [E.genericTryAgain, E.networkError]
+    [E.genericTryAgain, E.networkError, lang]
   );
 
   useEffect(() => {
@@ -136,39 +104,30 @@ export function RiskReportClient() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!tierFree && !userEmail.trim()) {
+    if (!userEmail.trim() || !form.name.trim()) {
       setStatus("error");
-      setFeedback(
-        (lang as Lang) === "zh" ? "完整报告需要填写邮箱。" : "Email is required for the full report."
-      );
+      setFeedback((lang as Lang) === "zh" ? "请填写姓名与邮箱。" : "Name and email are required.");
       return;
     }
     setStatus("loading");
     setFeedback("");
-    setFullResult(null);
-    setFreeResult(null);
+    setResult(null);
 
     const income = Number(form.income);
     const savings = Number(form.savings);
-    const price = Number(form.propPrice);
 
     try {
       const res = await fetch("/api/risk-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: tierFree ? undefined : userEmail.trim(),
-          lang: lang as Lang,
+          name: form.name.trim(),
+          email: userEmail.trim(),
           income,
           savings,
           ownership: form.ownership,
-          location: form.userLocation.trim(),
-          property: {
-            price,
-            location: form.propLocation.trim(),
-            type: form.propType
-          },
-          tier: tierFree ? "free" : "full"
+          location: form.location.trim(),
+          lang: lang as Lang
         })
       });
 
@@ -180,23 +139,12 @@ export function RiskReportClient() {
         return;
       }
 
-      if (tierFree) {
-        setFreeResult({
-          risk_score: data.risk_score as number,
-          risk_level: data.risk_level as string,
-          message: typeof data.message === "string" ? data.message : undefined
-        });
-      } else {
-        setFullResult({
-          risk_score: data.risk_score as number,
-          risk_level: data.risk_level as string,
-          risk_breakdown: data.risk_breakdown as RiskBreakdown,
-          ai_summary: data.ai_summary as string,
-          ai_summary_en: data.ai_summary_en as string,
-          recommendation: data.recommendation as string,
-          recommendation_en: data.recommendation_en as string
-        });
-      }
+      setResult({
+        score: data.score as number,
+        risk_level: String(data.risk_level ?? ""),
+        summary: String(data.summary ?? ""),
+        recommended_properties: (data.recommended_properties as CatalogRow[]) ?? []
+      });
       setStatus("idle");
     } catch {
       setStatus("error");
@@ -204,19 +152,7 @@ export function RiskReportClient() {
     }
   };
 
-  const scorePct = fullResult
-    ? Math.min(100, Math.max(0, fullResult.risk_score))
-    : freeResult
-      ? Math.min(100, Math.max(0, freeResult.risk_score))
-      : 0;
-
-  const breakdownRows: { key: keyof RiskBreakdown; label: string }[] = [
-    { key: "financial", label: R.financial },
-    { key: "cashflow", label: R.cashflow },
-    { key: "location", label: R.location },
-    { key: "property", label: R.property },
-    { key: "liquidity", label: R.liquidity }
-  ];
+  const scorePct = result ? Math.min(100, Math.max(0, result.score)) : 0;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] px-4 py-14 text-slate-100 sm:py-20">
@@ -258,19 +194,29 @@ export function RiskReportClient() {
           {(lang as Lang) === "zh" ? "新建评估" : "New assessment"}
         </h2>
         <form className="grid gap-4 text-left" onSubmit={onSubmit}>
-          {!tierFree ? (
-            <label className="text-sm font-medium text-slate-300">
-              {R.emailForReport}
-              <input
-                required={!tierFree}
-                type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
-                autoComplete="email"
-                className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-              />
-            </label>
-          ) : null}
+          <label className="text-sm font-medium text-slate-300">
+            {(lang as Lang) === "zh" ? "姓名" : "Name"}
+            <input
+              required
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              autoComplete="name"
+              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+            />
+          </label>
+
+          <label className="text-sm font-medium text-slate-300">
+            {R.emailForReport}
+            <input
+              required
+              type="email"
+              value={userEmail}
+              onChange={(e) => setUserEmail(e.target.value)}
+              autoComplete="email"
+              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+            />
+          </label>
 
           <label className="text-sm font-medium text-slate-300">
             {R.income}
@@ -302,11 +248,11 @@ export function RiskReportClient() {
             {R.ownership}
             <select
               value={form.ownership}
-              onChange={(e) => setForm({ ...form, ownership: e.target.value as "Yes" | "No" })}
+              onChange={(e) => setForm({ ...form, ownership: e.target.value as "yes" | "no" })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
             >
-              <option value="No">{t.common.no}</option>
-              <option value="Yes">{t.common.yes}</option>
+              <option value="no">{t.common.no}</option>
+              <option value="yes">{t.common.yes}</option>
             </select>
           </label>
 
@@ -315,56 +261,10 @@ export function RiskReportClient() {
             <input
               required
               type="text"
-              value={form.userLocation}
-              onChange={(e) => setForm({ ...form, userLocation: e.target.value })}
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
             />
-          </label>
-
-          <label className="text-sm font-medium text-slate-300">
-            {R.propPrice}
-            <input
-              required
-              type="number"
-              min="0.01"
-              step="any"
-              value={form.propPrice}
-              onChange={(e) => setForm({ ...form, propPrice: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-            />
-          </label>
-
-          <label className="text-sm font-medium text-slate-300">
-            {R.propLocation}
-            <input
-              required
-              type="text"
-              value={form.propLocation}
-              onChange={(e) => setForm({ ...form, propLocation: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-            />
-          </label>
-
-          <label className="text-sm font-medium text-slate-300">
-            {R.propType}
-            <select
-              value={form.propType}
-              onChange={(e) => setForm({ ...form, propType: e.target.value as "apartment" | "house" })}
-              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-            >
-              <option value="apartment">{R.typeApt}</option>
-              <option value="house">{R.typeHouse}</option>
-            </select>
-          </label>
-
-          <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-400">
-            <input
-              type="checkbox"
-              checked={tierFree}
-              onChange={(e) => setTierFree(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-600 bg-[#020617] text-amber-500 focus:ring-amber-500/40"
-            />
-            <span>{tierFree ? R.tierFree : R.tierFull}</span>
           </label>
 
           <button
@@ -381,35 +281,18 @@ export function RiskReportClient() {
         ) : null}
       </section>
 
-      {freeResult ? (
-        <section className="mx-auto mt-12 max-w-xl rounded-2xl border border-amber-900/50 bg-[#0f172a]/90 p-8 shadow-xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">{R.riskScoreHeading}</p>
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <span className="text-5xl font-extrabold text-white">{freeResult.risk_score}</span>
-            <span className="pb-2 text-xl text-slate-500">/100</span>
-            <span
-              className={`rounded-full border px-3 py-1 text-xs font-semibold ${levelBadgeClass(freeResult.risk_level)}`}
-            >
-              {freeResult.risk_level}
-            </span>
-          </div>
-          <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-slate-800">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-600 to-emerald-500 transition-all duration-700"
-              style={{ width: `${scorePct}%` }}
-            />
-          </div>
-          <p className="mt-6 text-sm text-slate-400">{freeResult.message ?? R.upgradeHint}</p>
-        </section>
-      ) : null}
-
-      {fullResult ? (
-        <div className="mx-auto mt-12 max-w-3xl space-y-8">
+      {result ? (
+        <div className="mx-auto mt-12 max-w-4xl space-y-10">
           <div className="rounded-2xl border border-amber-900/50 bg-[#0f172a]/90 p-8 shadow-xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">{R.riskScoreHeading}</p>
             <div className="mt-4 flex flex-wrap items-end gap-4">
-              <span className="text-6xl font-extrabold tracking-tight text-white">{fullResult.risk_score}</span>
+              <span className="text-6xl font-extrabold tracking-tight text-white">{result.score}</span>
               <span className="pb-2 text-2xl text-slate-500">/100</span>
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase ${levelBadgeClass(result.risk_level)}`}
+              >
+                {result.risk_level}
+              </span>
             </div>
             <div className="mt-6 h-3 w-full overflow-hidden rounded-full bg-slate-800">
               <div
@@ -418,49 +301,50 @@ export function RiskReportClient() {
               />
             </div>
 
-            <div className="mt-8 border-t border-amber-900/40 pt-8">
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">{R.riskLevelHeading}</p>
-              <p className="mt-3 text-xl font-semibold text-white">{fullResult.risk_level}</p>
+            <div className="mt-10 border-t border-amber-900/40 pt-10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">
+                {(lang as Lang) === "zh" ? "摘要" : "Summary"}
+              </p>
+              <p className="mt-4 text-lg leading-relaxed text-slate-100">{result.summary}</p>
             </div>
 
-            {fullResult.created_at ? (
-              <p className="mt-2 text-xs text-slate-500">
-                {R.savedAt}: {new Date(fullResult.created_at).toLocaleString()}
+            {result.created_at ? (
+              <p className="mt-6 text-xs text-slate-500">
+                {R.savedAt}: {new Date(result.created_at).toLocaleString()}
               </p>
             ) : null}
-
-            <div className="mt-10 border-t border-amber-900/40 pt-10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">{R.breakdownTitle}</p>
-              <ul className="mt-5 space-y-3">
-                {breakdownRows.map((row) => {
-                  const level = fullResult.risk_breakdown[row.key];
-                  return (
-                    <li
-                      key={row.key}
-                      className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium ${axisClass(level)}`}
-                    >
-                      <span className="text-slate-200">{row.label}</span>
-                      <span>{axisLabel(level, R)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="mt-10 border-t border-amber-900/40 pt-10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">{R.aiTitle}</p>
-              <p className="mt-4 text-lg leading-relaxed text-slate-100">
-                {(lang as Lang) === "zh" ? fullResult.ai_summary : fullResult.ai_summary_en}
-              </p>
-            </div>
-
-            <div className="mt-10 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/50 to-[#020617]/90 p-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-300/90">{R.recTitle}</p>
-              <p className="mt-3 text-2xl font-semibold text-white">
-                {(lang as Lang) === "zh" ? fullResult.recommendation : fullResult.recommendation_en}
-              </p>
-            </div>
           </div>
+
+          {result.recommended_properties.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/90">
+                {(lang as Lang) === "zh" ? "推荐房源" : "Recommended properties"}
+              </p>
+              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {result.recommended_properties.map((p) => (
+                  <article
+                    key={p.id}
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-[#0f172a]/95 shadow-lg"
+                  >
+                    <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary https URLs from Airtable */}
+                      <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-semibold text-white">{p.name}</h3>
+                      <p className="mt-1 text-sm text-amber-200/90">
+                        {p.price > 0 ? `$${p.price.toLocaleString("en-AU")}` : "—"}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">{p.location}</p>
+                      {p.description ? (
+                        <p className="mt-3 text-sm text-slate-400 line-clamp-3">{p.description}</p>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </main>
