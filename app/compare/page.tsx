@@ -212,24 +212,28 @@ export default function ComparePage() {
         return;
       }
 
+      const compareLeadMessage = [
+        "Compare AI",
+        `Readiness ${compareResult.leadScore}/100`,
+        form.cityHint.trim() ? `Area: ${form.cityHint.trim()}` : null
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
       const saveLeadResponse = await fetch("/api/save-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim(),
           email: payload.email,
-          income: payload.income,
-          savings: payload.savings,
-          ownership: payload.hasProperty,
-          location: form.cityHint.trim(),
-          score: compareResult.leadScore
+          message: compareLeadMessage
         })
       });
 
       const saveLeadData = (await saveLeadResponse.json()) as { success?: boolean; message?: string };
       if (!saveLeadResponse.ok || saveLeadData.success !== true) {
         setStatus("error");
-        setFeedback(saveLeadData.message ?? E.genericTryAgain);
+        setFeedback(saveLeadData.message ?? "Submission failed. Please try again later.");
         return;
       }
 
