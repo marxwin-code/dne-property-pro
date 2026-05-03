@@ -13,6 +13,7 @@ type CompareForm = {
   age: string;
   income: string;
   savings: string;
+  debt: string;
   hasProperty: "Yes" | "No";
   email: string;
   cityHint: string;
@@ -50,6 +51,7 @@ const initialForm: CompareForm = {
   age: "",
   income: "",
   savings: "",
+  debt: "",
   hasProperty: "No",
   email: "",
   cityHint: ""
@@ -91,10 +93,15 @@ export default function ComparePage() {
     setResult(null);
 
     try {
+      const debtNum =
+        form.debt.trim() === "" ? undefined : Number(form.debt);
       const payload = {
         age: Number(form.age),
         income: Number(form.income),
         savings: Number(form.savings),
+        ...(debtNum !== undefined && Number.isFinite(debtNum) && debtNum >= 0
+          ? { debt: debtNum }
+          : {}),
         hasProperty: form.hasProperty,
         email: form.email.trim(),
         lang: lang as Lang,
@@ -271,7 +278,8 @@ export default function ComparePage() {
             <input
               required
               type="number"
-              min="0"
+              min="1"
+              step="1"
               value={form.age}
               onChange={(e) => setForm({ ...form, age: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
@@ -283,7 +291,8 @@ export default function ComparePage() {
             <input
               required
               type="number"
-              min="0"
+              min="0.01"
+              step="any"
               value={form.income}
               onChange={(e) => setForm({ ...form, income: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
@@ -296,8 +305,21 @@ export default function ComparePage() {
               required
               type="number"
               min="0"
+              step="any"
               value={form.savings}
               onChange={(e) => setForm({ ...form, savings: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
+            />
+          </label>
+
+          <label className="text-sm font-medium text-slate-300">
+            {L.debtOptional}
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={form.debt}
+              onChange={(e) => setForm({ ...form, debt: e.target.value })}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-[#020617] px-3 py-2 text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30"
             />
           </label>

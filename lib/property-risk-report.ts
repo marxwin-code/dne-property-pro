@@ -1,6 +1,9 @@
 /**
  * Property Risk Report Engine — safety score from 100 downward (higher = safer purchase).
  * Separate from lib/risk-scoring.ts (different product / formula).
+ *
+ * Do not block user input based on business rules. Income/savings are validated only as
+ * positive numbers where required; affordability and risk are computed inside this module.
  */
 
 export type AxisRisk = "Low" | "Medium" | "High";

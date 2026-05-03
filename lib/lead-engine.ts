@@ -1,7 +1,10 @@
 import type { Lang } from "./i18n/text";
 import type { AirtableListing } from "./airtable";
 
-/** Lead score 0–100: additive rules, capped at 100. */
+/**
+ * Legacy additive score (unused by Compare AI — prefer investment-readiness-v1).
+ * Not used to gate user input.
+ */
 export function computeLeadScore(
   age: number,
   income: number,
@@ -18,9 +21,10 @@ export function computeLeadScore(
 
 export type LeadLevel = "Hot" | "Warm" | "Cold";
 
+/** Aligns with Investment Readiness V1 overall_score bands (75 / 50). Not used to block inputs. */
 export function getLeadLevel(score: number): LeadLevel {
-  if (score >= 70) return "Hot";
-  if (score >= 40) return "Warm";
+  if (score >= 75) return "Hot";
+  if (score >= 50) return "Warm";
   return "Cold";
 }
 

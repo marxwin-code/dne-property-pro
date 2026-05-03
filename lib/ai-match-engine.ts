@@ -1,28 +1,17 @@
+/**
+ * Matching listings to budget — business judgement stays in scoring (investment-readiness-v1),
+ * not in blocking user input.
+ */
 import type { Lang } from "@/lib/i18n/text";
 import type { AirtableListing } from "@/lib/airtable";
 import type { LeadLevel } from "@/lib/lead-engine";
+import { computeInvestmentReadinessV1 } from "@/lib/investment-readiness-v1";
 
 export type { LeadLevel };
 
 /** max_budget = savings × 5 + income × 3 */
 export function computeMaxBudget(savings: number, income: number): number {
   return savings * 5 + income * 3;
-}
-
-function incomePoints(income: number): number {
-  if (income < 60_000) return 10;
-  if (income <= 100_000) return 20;
-  return 30;
-}
-
-function savingsPoints(savings: number): number {
-  if (savings < 20_000) return 10;
-  if (savings <= 50_000) return 20;
-  return 30;
-}
-
-function ownershipPoints(hasProperty: "Yes" | "No"): number {
-  return hasProperty === "Yes" ? 20 : 10;
 }
 
 function locationTokensMatch(listLocation: string, hint: string): boolean {
@@ -42,20 +31,17 @@ export function hasLocationIntentMatch(listings: AirtableListing[], locationHint
 }
 
 /**
- * Lead score 0–100: income + savings + ownership + location match (per product spec).
+ * @deprecated Prefer `computeInvestmentReadinessV1` from `@/lib/investment-readiness-v1`.
+ * Kept for callers that still pass legacy arguments; score is overall_score only (listing match ignored for the numeric model).
  */
 export function computeAiLeadScore(
   income: number,
   savings: number,
-  hasProperty: "Yes" | "No",
-  listings: AirtableListing[],
-  locationHint: string | undefined
+  _hasProperty: "Yes" | "No",
+  _listings: AirtableListing[],
+  _locationHint: string | undefined
 ): number {
-  const locMatch = hasLocationIntentMatch(listings, locationHint ?? "");
-  const locPts = locMatch ? 20 : 10;
-  const raw =
-    incomePoints(income) + savingsPoints(savings) + ownershipPoints(hasProperty) + locPts;
-  return Math.min(100, raw);
+  return computeInvestmentReadinessV1({ income, savings, debt: 0 }).overall_score;
 }
 
 export function matchTopProperties(

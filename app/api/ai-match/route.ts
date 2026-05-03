@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchListingsFromAirtable } from "@/lib/airtable";
-import {
-  buildAiSalesAdvice,
-  computeAiLeadScore,
-  getSalesPitch,
-  matchTopProperties
-} from "@/lib/ai-match-engine";
+import { buildAiSalesAdvice, getSalesPitch, matchTopProperties } from "@/lib/ai-match-engine";
+import { computeInvestmentReadinessV1 } from "@/lib/investment-readiness-v1";
 import { getLeadLevel } from "@/lib/lead-engine";
 import type { Lang } from "@/lib/i18n/text";
 
@@ -15,22 +11,44 @@ type Body = {
   age?: number;
   income?: number;
   savings?: number;
+  debt?: number;
   ownership?: "Yes" | "No";
   email?: string;
   location?: string;
   lang?: Lang;
 };
 
-function isFin(n: unknown): n is number {
+function isPositive(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
+function isNonNeg(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0;
 }
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
-    if (!isFin(body.income) || !isFin(body.savings) || (body.ownership !== "Yes" && body.ownership !== "No")) {
+
+    const debt =
+      body.debt === undefined || body.debt === null
+        ? 0
+        : isNonNeg(body.debt)
+          ? body.debt
+          : null;
+
+    if (
+      !isPositive(body.income) ||
+      !isNonNeg(body.savings) ||
+      debt === null ||
+      (body.ownership !== "Yes" && body.ownership !== "No")
+    ) {
       return NextResponse.json(
-        { success: false, message: "Invalid input. income, savings, and ownership (Yes|No) are required." },
+        {
+          success: false,
+          message:
+            "Invalid input. Income must be greater than 0; savings must be 0 or greater; debt optional (≥0); ownership Yes|No."
+        },
         { status: 400 }
       );
     }
@@ -39,13 +57,12 @@ export async function POST(req: Request) {
     const location = body.location?.trim() ?? "";
 
     const listings = await fetchListingsFromAirtable();
-    const score = computeAiLeadScore(
-      body.income,
-      body.savings,
-      body.ownership,
-      listings,
-      location || undefined
-    );
+    const readiness = computeInvestmentReadinessV1({
+      income: body.income,
+      savings: body.savings,
+      debt
+    });
+    const score = readiness.overall_score;
     const level = getLeadLevel(score);
 
     const recommended = matchTopProperties(listings, body.income, body.savings, location || undefined, 3).map(
