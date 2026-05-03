@@ -4,20 +4,15 @@
  */
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { fetchListingsFromAirtable, makeFallbackAirtableListing, type AirtableListing } from "@/lib/airtable";
-import {
-  buildAiSalesAdvice,
-  computeMaxBudget,
-  getSalesPitch,
-  matchTopProperties
-} from "@/lib/ai-match-engine";
+import { fetchCatalogProperties } from "@/lib/airtable-catalog-properties";
+import { recommendPropertiesFromCatalog } from "@/lib/property-recommendation-engine";
+import { buildAiSalesAdvice, computeMaxBudget, getSalesPitch } from "@/lib/ai-match-engine";
 import {
   affordabilityScoreToBand,
   computeInvestmentReadinessV1
 } from "@/lib/investment-readiness-v1";
 import { getLeadLevel, type LeadLevel } from "@/lib/lead-engine";
 import type { Lang } from "@/lib/i18n/text";
-import { LUXURY_LISTING_IMAGES } from "@/lib/luxury-media";
 
 export const runtime = "nodejs";
 
@@ -141,37 +136,6 @@ export async function POST(req: Request) {
     const lang: Lang = body.lang === "zh" ? "zh" : "en";
     const cityHint = body.cityHint?.trim();
 
-    let listings: AirtableListing[] = await fetchListingsFromAirtable();
-    if (listings.length === 0) {
-      listings = [
-        makeFallbackAirtableListing({
-          id: "fallback-1",
-          name: "Premium House & Land — West corridor",
-          price: 620_000,
-          location: "Melbourne growth corridor",
-          image_url: LUXURY_LISTING_IMAGES.architectural,
-          description: "Turnkey package suited to owner-occupiers and investors seeking land upside."
-        }),
-        makeFallbackAirtableListing({
-          id: "fallback-2",
-          name: "Designer Town Residence",
-          price: 580_000,
-          location: "Inner south-east",
-          image_url: LUXURY_LISTING_IMAGES.living,
-          description: "Low-maintenance layout with strong rental appeal.",
-          region: "South East"
-        }),
-        makeFallbackAirtableListing({
-          id: "fallback-3",
-          name: "Family Home & Land",
-          price: 640_000,
-          location: "Established schools precinct",
-          image_url: LUXURY_LISTING_IMAGES.exterior,
-          description: "Four-bedroom stock aligned with family rental demand."
-        })
-      ];
-    }
-
     const readiness = computeInvestmentReadinessV1({
       income,
       savings,
@@ -182,15 +146,24 @@ export async function POST(req: Request) {
     const affordability = affordabilityScoreToBand(readiness.affordability_score);
     const budgetEstimate = computeMaxBudget(savings, income);
 
-    const recommendedRaw = matchTopProperties(listings, income, savings, cityHint, 3);
-    const recommendedProperties: CompareProperty[] = recommendedRaw.map((l) => ({
-      id: l.id,
-      name: l.name,
-      priceLabel: l.priceLabel,
-      location: l.location,
-      image_url: l.image_url,
-      image: l.image,
-      description: l.description || "—"
+    const catalog = await fetchCatalogProperties(200);
+    const recEngine = recommendPropertiesFromCatalog(catalog, {
+      income,
+      savings,
+      ownership: hasProperty === "Yes" ? "yes" : "no",
+      location: cityHint ?? "",
+      lang
+    });
+
+    const recommendedProperties: CompareProperty[] = recEngine.recommended_properties.map((p) => ({
+      id: p.id,
+      name: p.name,
+      priceLabel: `$${Math.round(p.price).toLocaleString("en-AU")}`,
+      location: p.location,
+      image_url: p.image,
+      image: p.image,
+      description: p.description || "—",
+      reason: p.reason
     }));
 
     const salesAdvice = buildAiSalesAdvice(
@@ -262,7 +235,10 @@ ${jsonInstruction}`;
       timingLabel: timingLabel(strategy.timing),
       risks: strategy.risks,
       strategy: strategy.strategy,
-      recommendedProperties
+      recommendedProperties,
+      recommendationBudget: recEngine.budget,
+      recommendationLoanCapacity: recEngine.loan_capacity,
+      recommendationFallbackHint: recEngine.fallback_hint
     });
   } catch (e) {
     console.error("[compare]", e);

@@ -14,6 +14,8 @@ export type CatalogProperty = {
   price: number;
   location: string;
   image_url: string;
+  /** True only when Airtable provided an Image URL / image_url field (not defaulted). */
+  has_real_image: boolean;
   description: string;
 };
 
@@ -42,15 +44,18 @@ export function mapRecordToCatalogProperty(
   const price = readNum(f.price ?? f.Price);
   const location = String(f.location ?? f.Location ?? "—").trim() || "—";
   const desc = String(f.description ?? f.Description ?? "").trim();
-  const rawImg = f.image_url ?? f.image_URL ?? f["image url"] ?? f.imageUrl;
-  const image_url = ensureHttpsImage(typeof rawImg === "string" ? rawImg : "");
+  const rawImg = f.image_url ?? f.image_URL ?? f.Image ?? f["Image URL"] ?? f["image url"] ?? f.imageUrl;
+  const rawStr = typeof rawImg === "string" ? rawImg.trim() : "";
+  const has_real_image = Boolean(rawStr);
+  const image_url = has_real_image ? ensureHttpsImage(rawStr) : DEFAULT_PROPERTY_IMAGE_URL;
 
   return {
     id,
     name,
     price,
     location,
-    image_url: image_url || DEFAULT_PROPERTY_IMAGE_URL,
+    image_url,
+    has_real_image,
     description: desc
   };
 }

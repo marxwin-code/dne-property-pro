@@ -27,6 +27,11 @@ type Rec = {
   image_url: string;
   image?: string;
   description: string;
+  reason?: {
+    why: string;
+    suitability: string;
+    risk: string;
+  };
 };
 
 type CompareResult = {
@@ -44,6 +49,8 @@ type CompareResult = {
   salesAdvice: string;
   salesPitch: string;
   budgetEstimate: number;
+  recommendationBudget?: number;
+  recommendationFallbackHint?: string;
 };
 
 const initialForm: CompareForm = {
@@ -135,10 +142,13 @@ export default function ComparePage() {
           image_url?: string;
           image?: string;
           description?: string;
+          reason?: { why?: string; suitability?: string; risk?: string };
         }>;
         salesAdvice?: string;
         salesPitch?: string;
         budgetEstimate?: number;
+        recommendationBudget?: number;
+        recommendationFallbackHint?: string;
       };
 
       if (!compareResponse.ok || compareData.success !== true) {
@@ -150,6 +160,7 @@ export default function ComparePage() {
       const rawRecs = compareData.recommendedProperties ?? [];
       const normalizedRecs: Rec[] = rawRecs.map((p) => {
         const img = p.image_url ?? p.image ?? "";
+        const r = p.reason;
         return {
           id: p.id ?? "",
           name: p.name ?? "",
@@ -157,7 +168,11 @@ export default function ComparePage() {
           location: p.location ?? "",
           image_url: img,
           image: img,
-          description: p.description ?? ""
+          description: p.description ?? "",
+          reason:
+            r?.why && r?.suitability && r?.risk
+              ? { why: r.why, suitability: r.suitability, risk: r.risk }
+              : undefined
         };
       });
 
@@ -175,7 +190,9 @@ export default function ComparePage() {
         recommendedProperties: normalizedRecs,
         salesAdvice: compareData.salesAdvice ?? "",
         salesPitch: compareData.salesPitch ?? "",
-        budgetEstimate: compareData.budgetEstimate ?? 0
+        budgetEstimate: compareData.budgetEstimate ?? 0,
+        recommendationBudget: compareData.recommendationBudget,
+        recommendationFallbackHint: compareData.recommendationFallbackHint
       };
 
       const emailResponse = await fetch("/api/send-email", {
@@ -466,6 +483,18 @@ export default function ComparePage() {
 
             <div className="mt-10 border-t border-sky-900/50 pt-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">{L.recommended}</p>
+              {result.recommendationBudget !== undefined ? (
+                <p className="mt-2 text-sm text-slate-400">
+                  {(lang as Lang) === "zh"
+                    ? `估算购房预算（存款 + 年收入×5，含 10% 缓冲筛选）：约 $${Math.round(result.recommendationBudget).toLocaleString("en-AU")}`
+                    : `Estimated purchase budget (savings + income×5, listings capped at 110%): ~$${Math.round(result.recommendationBudget).toLocaleString("en-AU")}`}
+                </p>
+              ) : null}
+              {result.recommendationFallbackHint && result.recommendedProperties.length === 0 ? (
+                <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
+                  {result.recommendationFallbackHint}
+                </p>
+              ) : null}
               <div className="mt-6 grid gap-10 md:grid-cols-3">
                 {result.recommendedProperties.map((p) => (
                   <ReportPropertyCard
@@ -476,9 +505,13 @@ export default function ComparePage() {
                     image_url={p.image_url}
                     viewMatchingLabel="View Matching Properties"
                     bookLabel="Book Consultation"
+                    reason={p.reason}
                   />
                 ))}
               </div>
+              {result.recommendationFallbackHint && result.recommendedProperties.length > 0 ? (
+                <p className="mt-6 text-sm text-slate-500">{result.recommendationFallbackHint}</p>
+              ) : null}
             </div>
           </div>
         </div>

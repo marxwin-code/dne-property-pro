@@ -11,6 +11,11 @@ export type ReportPropertyCardProps = {
   image_url: string;
   viewMatchingLabel: string;
   bookLabel: string;
+  reason?: {
+    why: string;
+    suitability: string;
+    risk: string;
+  };
 };
 
 /** Compare report — fixed layout: cover image, title, location, price, two CTAs. */
@@ -20,7 +25,8 @@ export function ReportPropertyCard({
   location,
   image_url,
   viewMatchingLabel,
-  bookLabel
+  bookLabel,
+  reason
 }: ReportPropertyCardProps) {
   const [loaded, setLoaded] = useState(false);
 
@@ -35,7 +41,7 @@ export function ReportPropertyCard({
         ) : null}
         <RemoteImg
           src={image_url}
-          fallbackSrc="/placeholder.jpg"
+          fallbackSrc={image_url}
           alt=""
           className="h-full w-full object-cover"
           onLoad={() => setLoaded(true)}
@@ -45,6 +51,13 @@ export function ReportPropertyCard({
         <h3 className="text-xl font-semibold tracking-tight text-white">{name}</h3>
         <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">{location}</p>
         <p className="mt-2 text-lg font-semibold text-amber-200/95">{priceLabel}</p>
+        {reason ? (
+          <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-left text-sm leading-relaxed text-slate-400">
+            <p className="text-slate-300">{reason.why}</p>
+            <p>{reason.suitability}</p>
+            <p className="text-amber-200/80">{reason.risk}</p>
+          </div>
+        ) : null}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/properties"
