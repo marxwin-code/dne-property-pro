@@ -8,10 +8,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
         pathname: "/**"
+      },
+      {
+        protocol: "https",
+        hostname: "source.unsplash.com",
+        pathname: "/**"
       }
     ],
-    // Legacy/hostinger setups still reference `domains`; Unsplash must load for listing previews.
-    domains: ["images.unsplash.com"]
+    domains: ["images.unsplash.com", "source.unsplash.com"]
   },
   turbopack: {
     root: process.cwd()

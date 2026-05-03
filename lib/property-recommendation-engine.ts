@@ -63,13 +63,19 @@ export function buildRecommendationReason(
   const tight = headroom < ctx.budget * 0.05;
 
   const hint = ctx.location.trim();
+  const typeNote =
+    p.property_type !== null
+      ? zh
+        ? ` 物业类型：${p.property_type === "house" ? "独立屋" : p.property_type === "apartment" ? "公寓" : "联排别墅"}。`
+        : ` Property type: ${p.property_type}.`
+      : "";
   const why = zh
     ? hint
-      ? `总价约 $${Math.round(p.price).toLocaleString("en-AU")}，在您估算购买力（含 10% 缓冲）内；区位「${p.location}」与意向区域「${hint}」相匹配。`
-      : `总价约 $${Math.round(p.price).toLocaleString("en-AU")}，在您估算购买力（含 10% 缓冲）内；区位：${p.location}。`
+      ? `总价约 $${Math.round(p.price).toLocaleString("en-AU")}，在您估算购买力（含 10% 缓冲）内；区位「${p.location}」与意向区域「${hint}」相匹配。${typeNote}`
+      : `总价约 $${Math.round(p.price).toLocaleString("en-AU")}，在您估算购买力（含 10% 缓冲）内；区位：${p.location}。${typeNote}`
     : hint
-      ? `Listed at ~$${Math.round(p.price).toLocaleString("en-AU")}, within your affordability cap (10% buffer); "${p.location}" aligns with your area filter "${hint}".`
-      : `Listed at ~$${Math.round(p.price).toLocaleString("en-AU")}, within your affordability cap (10% buffer); location: ${p.location}.`;
+      ? `Listed at ~$${Math.round(p.price).toLocaleString("en-AU")}, within your affordability cap (10% buffer); "${p.location}" aligns with your area filter "${hint}".${typeNote}`
+      : `Listed at ~$${Math.round(p.price).toLocaleString("en-AU")}, within your affordability cap (10% buffer); location: ${p.location}.${typeNote}`;
 
   let suitability: string;
   if (zh) {
@@ -135,7 +141,7 @@ export function recommendPropertiesFromCatalog(
   const filtered = catalog.filter((row) => {
     if (!Number.isFinite(row.price) || row.price <= 0) return false;
     if (row.price > maxPrice) return false;
-    if (!row.has_real_image || !row.image_url.startsWith("https://")) return false;
+    if (row.image_kind === "placeholder" || !row.image_url.startsWith("https://")) return false;
     return locationMatchesListing(row.location, input.location);
   });
 
@@ -155,8 +161,8 @@ export function recommendPropertiesFromCatalog(
   if (recommended_properties.length === 0 && catalog.some((c) => c.price > 0 && c.price <= maxPrice)) {
     fallback_hint =
       lang === "zh"
-        ? "预算内有房源但缺少有效图片链接（请在 Airtable 填写 Image URL），或未匹配到意向区域。请调整区域关键词。"
-        : "Listings exist within budget but were skipped (missing Image URL in Airtable) or no suburb match — refine location.";
+        ? "预算内有房源但被跳过（缺少 Image URL 且未识别 property_type，或未匹配意向区域）。请在 Airtable 填写图片或类型（House / Apartment / Townhouse）。"
+        : "Listings exist within budget but were skipped (no Image URL and no property_type, or suburb mismatch). Add an image or property_type in Airtable.";
   }
 
   return {
