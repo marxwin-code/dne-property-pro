@@ -7,7 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next build",
-    "seed:airtable-properties": "node scripts/seed-airtable-properties.mjs"
+    "seed:airtable-properties": "node scripts/seed-airtable-properties.mjs",
+    "airtable:init-properties": "node scripts/airtable/init-and-import-properties.mjs"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",
@@ -22,6 +23,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "autoprefixer": "^10.4.21",
+    "csv-parse": "^5.6.0",
     "eslint": "^9.38.0",
     "eslint-config-next": "^16.2.4",
     "postcss": "^8.5.6",
