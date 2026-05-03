@@ -1,12 +1,19 @@
 /**
- * Airtable **Properties** catalog — fixed columns only (lowercase):
- * name, price, location, image_url, description
+ * Airtable **Properties** catalog — fixed columns (lowercase + optional `property_type`):
+ * name, price, location, image_url, description, property_type (House / Apartment / Townhouse)
  * Table name defaults to `Properties` (override with AIRTABLE_CATALOG_TABLE_NAME).
  */
 import { getAirtableEnv } from "./airtable";
+import {
+  buildUnsplashUrlForPropertyType,
+  normalizePropertyType,
+  type NormalizedPropertyType
+} from "./unsplash-property-type";
 
 export const DEFAULT_PROPERTY_IMAGE_URL =
   "https://images.unsplash.com/photo-1560185007-cde436f6a4d0";
+
+export type CatalogImageKind = "airtable" | "unsplash_type" | "placeholder";
 
 export type CatalogProperty = {
   id: string;
@@ -14,8 +21,9 @@ export type CatalogProperty = {
   price: number;
   location: string;
   image_url: string;
-  /** True only when Airtable provided an Image URL / image_url field (not defaulted). */
-  has_real_image: boolean;
+  /** Resolved from `property_type` / `type` when applicable */
+  property_type: NormalizedPropertyType | null;
+  image_kind: CatalogImageKind;
   description: string;
 };
 
@@ -46,8 +54,25 @@ export function mapRecordToCatalogProperty(
   const desc = String(f.description ?? f.Description ?? "").trim();
   const rawImg = f.image_url ?? f.image_URL ?? f.Image ?? f["Image URL"] ?? f["image url"] ?? f.imageUrl;
   const rawStr = typeof rawImg === "string" ? rawImg.trim() : "";
-  const has_real_image = Boolean(rawStr);
-  const image_url = has_real_image ? ensureHttpsImage(rawStr) : DEFAULT_PROPERTY_IMAGE_URL;
+
+  const propTypeRaw = String(
+    f.property_type ?? f["property_type"] ?? f.type ?? f.Type ?? f["Property Type"] ?? ""
+  ).trim();
+  const normalizedType = normalizePropertyType(propTypeRaw);
+
+  let image_url: string;
+  let image_kind: CatalogImageKind;
+
+  if (rawStr) {
+    image_url = ensureHttpsImage(rawStr);
+    image_kind = "airtable";
+  } else if (normalizedType) {
+    image_url = buildUnsplashUrlForPropertyType(normalizedType);
+    image_kind = "unsplash_type";
+  } else {
+    image_url = DEFAULT_PROPERTY_IMAGE_URL;
+    image_kind = "placeholder";
+  }
 
   return {
     id,
@@ -55,7 +80,8 @@ export function mapRecordToCatalogProperty(
     price,
     location,
     image_url,
-    has_real_image,
+    property_type: normalizedType,
+    image_kind,
     description: desc
   };
 }
