@@ -1,35 +1,21 @@
 /**
- * Leads table field names are **lowercase** and must match the Airtable base:
- * name, email, income, savings, ownership, location, (optional) score
+ * Airtable **Leads** table (simple inquiries only) — field names must be lowercase and
+ * match the base exactly: `name`, `email`, `message`.
  *
- * `toAirtableLeadFields` always uses these exact API keys (no client passthrough).
+ * Do not send income/savings/ownership here; those belong to `risk_reports` / other tables.
+ * `toAirtableLeadFields` builds the API `fields` object only from canonical server-side data
+ * (never raw client passthrough).
  */
-export type LeadBodyForAirtable = {
+export type SimpleLeadForAirtable = {
   name: string;
   email: string;
-  income: number;
-  savings: number;
-  ownership: string;
-  location: string;
-  /** Omitted from the Airtable request when null (add a `score` column if you send it). */
-  score: number | null;
+  message: string;
 };
 
-/**
- * Build the `fields` object: `name` ← data.name, `email` ← data.email, etc.
- * Numbers are never null (Airtable is happier with 0 than null for numeric fields).
- */
-export function toAirtableLeadFields(b: LeadBodyForAirtable): Record<string, string | number> {
-  const fields: Record<string, string | number> = {
-    name: b.name.trim() || "Lead",
-    email: b.email.trim(),
-    income: b.income,
-    savings: b.savings,
-    ownership: b.ownership,
-    location: b.location
+export function toAirtableLeadFields(b: SimpleLeadForAirtable): Record<string, string> {
+  return {
+    name: b.name || "",
+    email: b.email || "",
+    message: b.message || ""
   };
-  if (b.score != null && Number.isFinite(b.score)) {
-    fields.score = b.score;
-  }
-  return fields;
 }

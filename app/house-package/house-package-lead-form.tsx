@@ -47,25 +47,15 @@ export function HousePackageLeadForm() {
         return;
       }
 
-      const saveLeadRes = await fetch("/api/save-lead", {
+      await fetch("/api/save-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           email,
-          income: 0,
-          savings: 0,
-          ownership: "—",
-          location: message.trim() ? message.trim().slice(0, 500) : t.house.leadSource,
-          score: 0
+          message: message.trim() ? message.trim().slice(0, 8000) : `Source: ${t.house.leadSource}`
         })
       });
-      const saveLeadData = (await saveLeadRes.json()) as { success?: boolean; message?: string };
-      if (!saveLeadRes.ok || saveLeadData.success !== true) {
-        setStatus("error");
-        setErrorDetail(saveLeadData.message ?? E.failedSaveRequest);
-        return;
-      }
       setStatus("success");
       setName("");
       setEmail("");
