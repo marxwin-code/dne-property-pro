@@ -1,10 +1,11 @@
 import { PROPERTY_IMG_FALLBACK } from "./luxury-media";
-import { PROPERTY_FIELD } from "./airtable-property-fields";
+import { PROPERTY_FIELD, PROPERTY_V2_FIELD } from "./airtable-property-fields";
 import {
   computeInvestmentScore,
   computePriceBand,
   computeRiskLevel,
   computeYieldEstimatePercent,
+  DEFAULT_WEEKLY_RENT_AUD,
   type PriceBand,
   type RiskLevel
 } from "./property-scoring";
@@ -51,9 +52,26 @@ function readInt(f: RawFields, ...keys: string[]): number {
   return n !== null && Number.isFinite(n) ? Math.round(n) : 0;
 }
 
+/** Airtable `price_band` single-select on `properties_v2`: cheap | fair | expensive */
+export type MarketPriceBand = "cheap" | "fair" | "expensive";
+
+function parseMarketPriceBand(raw: string): MarketPriceBand | null {
+  const t = raw.trim().toLowerCase();
+  if (t === "cheap" || t === "fair" || t === "expensive") return t;
+  return null;
+}
+
+function parseRiskLevelSelect(raw: string): RiskLevel | null {
+  const t = raw.trim().toLowerCase();
+  if (t === "low") return "Low";
+  if (t === "medium") return "Medium";
+  if (t === "high") return "High";
+  return null;
+}
+
 /**
  * Normalised listing — structured snake_case fields plus legacy UI keys (`name`, `price`, `location`).
- * AI metrics (`price_band`, `yield_estimate`, `investment_score`, `risk_level`) are always computed in code.
+ * Affordability `price_band` is computed (Low/Mid/High). `market_price_band` comes from Airtable v2 when set.
  */
 export type AirtableListing = {
   id: string;
@@ -73,13 +91,24 @@ export type AirtableListing = {
   bathrooms: number;
   car_spaces: number;
   package_price: number;
+  /** `price` column when present (listing / valuation); may equal package total */
+  list_price: number | null;
+  weekly_rent: number | null;
   status: string;
   region: string;
+  /** Derived from package tiers (Low/Mid/High) */
   price_band: PriceBand;
+  /** Airtable v2 single-select cheap/fair/expensive */
+  market_price_band: MarketPriceBand | null;
   yield_estimate: number;
+  yield_percent: number;
   investment_score: number;
+  growth_score: number | null;
   risk_level: RiskLevel;
   suburb_score: number;
+  distance_to_cbd: number | null;
+  school_score: number | null;
+  crime_rate: number | null;
   name: string;
   price: number;
   priceLabel: string;
@@ -129,14 +158,23 @@ function buildDescription(f: RawFields, suburb: string, houseDesign: string): st
 export function mapFieldsToListing(id: string, fields: RawFields): AirtableListing {
   const f = fields;
 
-  let package_price =
-    readNumber(f, "package_price", "package price", "Package Price") ??
-    readNumber(f, "price", "Price");
+  const pkgCol = readNumber(f, PROPERTY_FIELD.package_price, "package_price", "package price", "Package Price");
+  const priceCol = readNumber(f, PROPERTY_V2_FIELD.price, "price", "Price");
+  let package_price = pkgCol;
   if (package_price === null || !Number.isFinite(package_price) || package_price <= 0) {
     const { numeric } = parsePriceField(f.price ?? f.Price);
+    const fromPriceCol = priceCol !== null && priceCol > 0 ? priceCol : null;
     package_price =
-      Number.isFinite(numeric) && numeric > 0 && numeric !== Number.POSITIVE_INFINITY ? numeric : 0;
+      fromPriceCol ??
+      (Number.isFinite(numeric) && numeric > 0 && numeric !== Number.POSITIVE_INFINITY ? numeric : 0);
   }
+  const list_price = priceCol !== null && priceCol > 0 ? priceCol : null;
+  const weekly_rent_raw = readNumber(
+    f,
+    PROPERTY_V2_FIELD.weekly_rent,
+    "weekly_rent",
+    "weekly rent"
+  );
 
   const suburb =
     readString(f, "suburb", "Suburb") || readString(f, "location", "Location") || "—";
@@ -176,6 +214,7 @@ export function mapFieldsToListing(id: string, fields: RawFields): AirtableListi
     (region && region !== "—" ? `${suburb}, ${region}` : suburb);
 
   const rawImg =
+    f[PROPERTY_V2_FIELD.image_url] ??
     f.image_url ??
     f.image_URL ??
     f["Image URL"] ??
@@ -199,17 +238,41 @@ export function mapFieldsToListing(id: string, fields: RawFields): AirtableListi
         ? priceNum
         : 0;
   const price_band = computePriceBand(effectivePrice || 1);
-  const yield_estimate = computeYieldEstimatePercent(effectivePrice || 1);
-  const risk_level = computeRiskLevel(title_date, land_size);
+
+  const rawMarketBand = readString(f, PROPERTY_V2_FIELD.price_band, "price_band");
+  const market_price_band = parseMarketPriceBand(rawMarketBand);
+
+  const weeklyRentForYield =
+    weekly_rent_raw !== null && weekly_rent_raw > 0 ? weekly_rent_raw : DEFAULT_WEEKLY_RENT_AUD;
+  const yieldComputed = computeYieldEstimatePercent(effectivePrice || 1, weeklyRentForYield);
+  const yieldStored = readNumber(f, PROPERTY_V2_FIELD.yield_percent, "yield_percent");
+  const yield_percent =
+    yieldStored !== null && Number.isFinite(yieldStored) && yieldStored >= 0 ? yieldStored : yieldComputed;
+
+  const riskFromAt = parseRiskLevelSelect(readString(f, PROPERTY_V2_FIELD.risk_level, "risk_level"));
+  const risk_level = riskFromAt ?? computeRiskLevel(title_date, land_size);
+
   const suburb_scoreRaw = readNumber(f, "suburb_score", "suburb score");
   const suburb_score =
     suburb_scoreRaw !== null && Number.isFinite(suburb_scoreRaw) ? Math.round(suburb_scoreRaw) : 70;
 
-  const investment_score = computeInvestmentScore({
-    price_band,
-    risk_level,
-    yield_percent: yield_estimate
-  });
+  const growth_score = readNumber(f, PROPERTY_V2_FIELD.growth_score, "growth_score");
+  const distance_to_cbd = readNumber(f, PROPERTY_V2_FIELD.distance_to_cbd, "distance_to_cbd");
+  const school_score = readNumber(f, PROPERTY_V2_FIELD.school_score, "school_score");
+  const crime_rate = readNumber(f, PROPERTY_V2_FIELD.crime_rate, "crime_rate");
+
+  const investStored = readNumber(f, PROPERTY_V2_FIELD.investment_score, "investment_score");
+  const investment_score =
+    investStored !== null && Number.isFinite(investStored)
+      ? Math.round(investStored)
+      : computeInvestmentScore({
+          price_band,
+          risk_level,
+          yield_percent
+        });
+
+  const weekly_rent =
+    weekly_rent_raw !== null && weekly_rent_raw > 0 ? weekly_rent_raw : null;
 
   return {
     id,
@@ -229,13 +292,21 @@ export function mapFieldsToListing(id: string, fields: RawFields): AirtableListi
     bathrooms,
     car_spaces,
     package_price: effectivePrice,
+    list_price,
+    weekly_rent,
     status,
     region,
     price_band,
-    yield_estimate,
+    market_price_band,
+    yield_estimate: yield_percent,
+    yield_percent,
     investment_score,
+    growth_score,
     risk_level,
     suburb_score,
+    distance_to_cbd,
+    school_score,
+    crime_rate,
     name,
     price: effectivePrice,
     priceLabel,
@@ -258,7 +329,7 @@ export function getAirtableEnv() {
   const listingsTable =
     process.env.AIRTABLE_LISTINGS_TABLE_NAME ||
     process.env.AIRTABLE_PROPERTIES_TABLE_NAME ||
-    "properties";
+    "properties_v2";
   return { apiKey, baseId, leadsTable, listingsTable };
 }
 
@@ -317,12 +388,12 @@ export function makeFallbackAirtableListing(input: {
   const title_date = input.title_date ?? "Titled";
   const package_price = input.price;
   const price_band = computePriceBand(package_price);
-  const yield_estimate = computeYieldEstimatePercent(package_price);
+  const yield_percent = computeYieldEstimatePercent(package_price);
   const risk_level = computeRiskLevel(title_date, land_size);
   const investment_score = computeInvestmentScore({
     price_band,
     risk_level,
-    yield_percent: yield_estimate
+    yield_percent
   });
   return {
     id: input.id,
@@ -342,13 +413,21 @@ export function makeFallbackAirtableListing(input: {
     bathrooms: 0,
     car_spaces: 0,
     package_price,
+    list_price: package_price,
+    weekly_rent: null,
     status: "Available",
     region,
     price_band,
-    yield_estimate,
+    market_price_band: null,
+    yield_estimate: yield_percent,
+    yield_percent,
     investment_score,
+    growth_score: null,
     risk_level,
     suburb_score: 70,
+    distance_to_cbd: null,
+    school_score: null,
+    crime_rate: null,
     name: input.name,
     price: package_price,
     priceLabel: `$${Math.round(package_price).toLocaleString("en-AU")}`,

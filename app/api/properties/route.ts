@@ -10,12 +10,20 @@ function toResponseListing(l: AirtableListing) {
     id: l.id,
     suburb: l.suburb,
     lot_number: l.lot_number,
-    price_band: l.price_band,
+    price: l.list_price,
     package_price: l.package_price,
-    investment_score: l.investment_score,
-    risk_level: l.risk_level,
+    price_band: l.price_band,
+    market_price_band: l.market_price_band,
+    weekly_rent: l.weekly_rent,
+    yield_percent: l.yield_percent,
     yield_estimate: l.yield_estimate,
+    investment_score: l.investment_score,
+    growth_score: l.growth_score,
+    risk_level: l.risk_level,
     suburb_score: l.suburb_score,
+    distance_to_cbd: l.distance_to_cbd,
+    school_score: l.school_score,
+    crime_rate: l.crime_rate,
     name: l.name,
     priceLabel: l.priceLabel,
     location: l.location,
@@ -36,7 +44,7 @@ export async function GET() {
         location: "Melbourne growth corridor",
         image_url: FALLBACK_PROPERTY_IMAGE,
         description:
-          "Add your properties in Airtable: table `properties`, fields suburb, lot_number, package_price, region, status, image_url, …"
+          "Add your properties in Airtable: table `properties_v2` (or set AIRTABLE_PROPERTIES_TABLE_NAME), fields suburb, lot_number, package_price, weekly_rent, image_url, …"
       });
       return NextResponse.json({
         success: true,

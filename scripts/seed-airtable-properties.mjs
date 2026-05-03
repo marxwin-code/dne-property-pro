@@ -2,7 +2,7 @@
  * Loads `data/airtable-properties-seed.json` and creates rows in Airtable (batch API).
  * JSON keys must match table fields; `name` is the primary field (Single line text).
  * Requires: AIRTABLE_API_KEY, AIRTABLE_BASE_ID
- * Optional: AIRTABLE_PROPERTIES_TABLE_NAME (default: properties)
+ * Optional: AIRTABLE_PROPERTIES_TABLE_NAME (app default: properties_v2)
  *
  * Run: node scripts/seed-airtable-properties.mjs
  */
@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const apiKey = process.env.AIRTABLE_API_KEY;
 const baseId = process.env.AIRTABLE_BASE_ID;
-const table = process.env.AIRTABLE_PROPERTIES_TABLE_NAME || "properties";
+const table = process.env.AIRTABLE_PROPERTIES_TABLE_NAME || "properties_v2";
 
 if (!apiKey || !baseId) {
   console.error("Set AIRTABLE_API_KEY and AIRTABLE_BASE_ID.");

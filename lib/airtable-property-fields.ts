@@ -1,7 +1,7 @@
 /**
- * Airtable `properties` table — canonical field names (lowercase, match Base schema).
- * `name` is the Airtable primary field (Single line text).
- * Base: "Property Database" · Table: `properties` (override via env).
+ * Airtable `properties` / `properties_v2` — canonical field names (lowercase).
+ * `name` is the primary field (Single line text).
+ * Override table via env · default listings table is `properties_v2`.
  * Do not construct field keys dynamically; import these identifiers only.
  */
 export const PROPERTY_FIELD = {
@@ -24,19 +24,32 @@ export const PROPERTY_FIELD = {
   package_price: "package_price",
   status: "status",
   region: "region",
-  /** Optional in Base; app may still read if present */
   image_url: "image_url",
   description: "description",
-  /** Optional stored AI columns (app recomputes in `lib/property-scoring.ts` if useful) */
-  price_band: "price_band",
+  /** Optional stored columns (legacy / overlap with v2) */
   yield_estimate: "yield_estimate",
-  investment_score: "investment_score",
-  risk_level: "risk_level",
   suburb_score: "suburb_score",
-  /** Legacy / migration */
   estate: "estate",
-  price: "price",
   location: "location"
 } as const;
 
+/** Extended metrics on table `properties_v2` (and compatible bases). */
+export const PROPERTY_V2_FIELD = {
+  /** Listing / valuation price (distinct from `package_price` when both exist) */
+  price: "price",
+  weekly_rent: "weekly_rent",
+  investment_score: "investment_score",
+  yield_percent: "yield_percent",
+  /** Single select: cheap | fair | expensive */
+  price_band: "price_band",
+  growth_score: "growth_score",
+  /** Single select: low | medium | high */
+  risk_level: "risk_level",
+  distance_to_cbd: "distance_to_cbd",
+  school_score: "school_score",
+  crime_rate: "crime_rate",
+  image_url: "image_url"
+} as const;
+
 export type PropertyFieldKey = (typeof PROPERTY_FIELD)[keyof typeof PROPERTY_FIELD];
+export type PropertyV2FieldKey = (typeof PROPERTY_V2_FIELD)[keyof typeof PROPERTY_V2_FIELD];
