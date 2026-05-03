@@ -1,63 +1,28 @@
-import type { RiskBreakdown } from "./property-risk-report";
 import { getAirtableEnv } from "./airtable";
 
 /**
  * Base table: `risk_reports` (override with AIRTABLE_RISK_REPORTS_TABLE_NAME).
- * If you see 403 / INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND: the personal access token must
- * have `data.records:read` + `data.records:write` for the **entire** base (or this table),
- * and `AIRTABLE_BASE_ID` + table name must match the UI exactly (names are case-sensitive).
- * All field names lowercase: email, score, risk_level, financial_risk, cashflow_risk,
- * location_risk, property_risk, liquidity_risk, summary, created_at
- *
- * `summary` stores JSON for round-trip: ai / recommendation text (EN+ZH).
+ * Field names (lowercase): email, income, savings, ownership, location, score, risk_level, summary, created_at
+ * risk_level: low | medium | high
+ * PAT needs data.records:read + data.records:write on this base.
  */
-export type RiskReportRowInput = {
+export type RiskReportCreateInput = {
   email: string;
+  income: number;
+  savings: number;
+  /** "yes" | "no" */
+  ownership: string;
+  location: string;
   score: number;
-  risk_level: string;
-  risk_breakdown: RiskBreakdown;
-  ai_summary: string;
-  ai_summary_en: string;
-  recommendation: string;
-  recommendation_en: string;
+  risk_level: "low" | "medium" | "high";
+  summary: string;
 };
 
 function getRiskReportTableName(): string {
   return process.env.AIRTABLE_RISK_REPORTS_TABLE_NAME?.trim() || "risk_reports";
 }
 
-function summaryPayload(input: RiskReportRowInput): string {
-  return JSON.stringify({
-    ai_summary: input.ai_summary,
-    ai_summary_en: input.ai_summary_en,
-    recommendation: input.recommendation,
-    recommendation_en: input.recommendation_en
-  });
-}
-
-function parseSummaryField(raw: string | undefined): {
-  ai_summary: string;
-  ai_summary_en: string;
-  recommendation: string;
-  recommendation_en: string;
-} {
-  if (!raw?.trim()) {
-    return { ai_summary: "", ai_summary_en: "", recommendation: "", recommendation_en: "" };
-  }
-  try {
-    const o = JSON.parse(raw) as Record<string, string>;
-    return {
-      ai_summary: o.ai_summary ?? "",
-      ai_summary_en: o.ai_summary_en ?? "",
-      recommendation: o.recommendation ?? "",
-      recommendation_en: o.recommendation_en ?? ""
-    };
-  } catch {
-    return { ai_summary: raw, ai_summary_en: "", recommendation: "", recommendation_en: "" };
-  }
-}
-
-export async function createRiskReportRecord(input: RiskReportRowInput): Promise<void> {
+export async function createRiskReportRecord(input: RiskReportCreateInput): Promise<void> {
   const { apiKey, baseId } = getAirtableEnv();
   if (!apiKey || !baseId) {
     console.warn("[airtable-risk-reports] Missing Airtable env — skip persist.");
@@ -65,26 +30,23 @@ export async function createRiskReportRecord(input: RiskReportRowInput): Promise
   }
 
   const table = getRiskReportTableName();
-  console.log("BASE:", baseId);
-  console.log("TABLE:", table);
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(table)}`;
-  const b = input.risk_breakdown;
   const fields: Record<string, string | number> = {
     email: input.email.trim().toLowerCase(),
+    income: input.income,
+    savings: input.savings,
+    ownership: input.ownership,
+    location: input.location,
     score: input.score,
     risk_level: input.risk_level,
-    financial_risk: b.financial,
-    cashflow_risk: b.cashflow,
-    location_risk: b.location,
-    property_risk: b.property,
-    liquidity_risk: b.liquidity,
-    summary: summaryPayload(input),
+    summary: input.summary,
     created_at: new Date().toISOString()
   };
 
   const payload = { records: [{ fields }] };
+  console.log("BASE:", baseId);
+  console.log("TABLE:", table);
   console.log("DATA:", fields);
-  console.log("Airtable risk_reports write:", JSON.stringify({ table, email: fields.email, score: fields.score }));
 
   const res = await fetch(url, {
     method: "POST",
@@ -103,13 +65,13 @@ export async function createRiskReportRecord(input: RiskReportRowInput): Promise
 
 export type StoredRiskReport = {
   email: string;
-  risk_score: number;
+  income: number;
+  savings: number;
+  ownership: string;
+  location: string;
+  score: number;
   risk_level: string;
-  risk_breakdown: RiskBreakdown;
-  ai_summary: string;
-  ai_summary_en: string;
-  recommendation: string;
-  recommendation_en: string;
+  summary: string;
   created_at: string;
 };
 
@@ -117,10 +79,7 @@ function escapeFormulaString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-/** Latest report for this email (case-insensitive). */
-export async function findLatestRiskReportByEmail(
-  email: string
-): Promise<StoredRiskReport | null> {
+export async function findLatestRiskReportByEmail(email: string): Promise<StoredRiskReport | null> {
   const { apiKey, baseId } = getAirtableEnv();
   if (!apiKey || !baseId) {
     console.warn("[airtable-risk-reports] Missing Airtable env — cannot lookup.");
@@ -131,8 +90,6 @@ export async function findLatestRiskReportByEmail(
   if (!normalized) return null;
 
   const table = getRiskReportTableName();
-  console.log("BASE:", baseId);
-  console.log("TABLE:", table);
   const formula = `{email}="${escapeFormulaString(normalized)}"`;
   const qs = new URLSearchParams({ filterByFormula: formula, maxRecords: "30" });
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(table)}?${qs.toString()}`;
@@ -161,27 +118,15 @@ export async function findLatestRiskReportByEmail(
   if (!rec?.fields) return null;
 
   const f = rec.fields;
-  const score = typeof f.score === "number" ? f.score : Number(f.score) || 0;
-  const risk_level = String(f.risk_level ?? "");
-  const meta = parseSummaryField(String(f.summary ?? ""));
-
-  const risk_breakdown: RiskBreakdown = {
-    financial: (f.financial_risk as RiskBreakdown["financial"]) || "Low",
-    cashflow: (f.cashflow_risk as RiskBreakdown["cashflow"]) || "Low",
-    location: (f.location_risk as RiskBreakdown["location"]) || "Low",
-    property: (f.property_risk as RiskBreakdown["property"]) || "Low",
-    liquidity: (f.liquidity_risk as RiskBreakdown["liquidity"]) || "Low"
-  };
-
   return {
     email: String(f.email ?? normalized),
-    risk_score: Math.round(score),
-    risk_level,
-    risk_breakdown,
-    ai_summary: meta.ai_summary,
-    ai_summary_en: meta.ai_summary_en,
-    recommendation: meta.recommendation,
-    recommendation_en: meta.recommendation_en,
-    created_at: String(f.created_at ?? "")
+    income: Number(f.income) || 0,
+    savings: Number(f.savings) || 0,
+    ownership: String(f.ownership ?? ""),
+    location: String(f.location ?? ""),
+    score: Math.round(Number(f.score) || 0),
+    risk_level: String(f.risk_level ?? ""),
+    summary: String(f.summary ?? ""),
+    created_at: String(f.created_at ?? rec.createdTime ?? "")
   };
 }
