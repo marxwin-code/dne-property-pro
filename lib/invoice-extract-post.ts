@@ -13,10 +13,7 @@ import {
 } from "@/lib/invoice-extract-constants";
 import { loadInvoiceExtractRuntimeConfig } from "@/lib/invoice-extract-config";
 import { invoiceExtractLog } from "@/lib/invoice-extract-log";
-import {
-  buildFinancialFromPropertyId,
-  fetchInvoicePropertyRows
-} from "@/lib/invoice-extract";
+import { fetchInvoicePropertyRows } from "@/lib/invoice-extract";
 import { matchTaskforceAddressToProperty } from "@/lib/taskforce-address-match";
 import { parseTaskforceInvoiceFromPdfText } from "@/lib/taskforce-invoice-parse";
 import {
@@ -47,13 +44,12 @@ async function pdfBufferToText(buffer: Buffer): Promise<{ ok: true; text: string
   }
 }
 
-function jsonFail500(error: unknown): NextResponse<{ success: false; error: string }> {
-  const message = error instanceof Error ? error.message : String(error);
-  return NextResponse.json({ success: false, error: message }, { status: 500 });
+function handlerErrorResponse(message: string): NextResponse<{ success: false; error: string }> {
+  return NextResponse.json({ success: false, error: message }, { status: 422 });
 }
 
 /**
- * POST /api/invoice-extract — Taskforce-only pipeline. All thrown errors become JSON 500 with `error.message`.
+ * POST /api/invoice-extract — deterministic Taskforce pipeline (no AI). JSON-only responses.
  */
 export async function handleInvoiceExtractPost(request: Request): Promise<Response> {
   const snapshot = invoiceExtractEnvSnapshot();
@@ -122,8 +118,10 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       return jsonError(422, pdf.error);
     }
 
-    console.log("PDF parsed:", pdf.text);
+    console.log("[invoice-extract] PDF text length", pdf.text.length);
+    invoiceExtractLog("info", "pdf_text_extracted", { fileName, textLength: pdf.text.length });
 
+    console.log("[invoice-extract] parsing fields (Reference, TF-, TOTAL AUD, Description)");
     const extracted = parseTaskforceInvoiceFromPdfText(pdf.text, limits.maxPdfChars);
     if (!extracted.ok) {
       invoiceExtractLog("error", "taskforce_parse_failed", { fileName, errorReason: extracted.error });
@@ -132,8 +130,16 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
 
     const inv = extracted.data;
     const extractedAddress = inv.address.trim();
-    console.log("[invoice-extract] extracted address:", extractedAddress);
-    invoiceExtractLog("info", "address_extracted", { fileName, extractedAddress });
+    console.log("[invoice-extract] parsed invoice_number", inv.invoice_number);
+    console.log("[invoice-extract] parsed amount", inv.amount);
+    console.log("[invoice-extract] extracted address (Reference)", extractedAddress);
+    console.log("[invoice-extract] description_combined length", inv.description_combined.length);
+    invoiceExtractLog("info", "taskforce_parse_ok", {
+      fileName,
+      invoice_number: inv.invoice_number,
+      amount: inv.amount,
+      addressLen: extractedAddress.length
+    });
 
     console.log("[invoice-extract] calling Airtable", {
       table: INVOICE_EXTRACT_AIRTABLE_TABLE,
@@ -162,6 +168,7 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     console.log("[invoice-extract] Airtable loaded row count:", records.length);
     invoiceExtractLog("info", "airtable_fetch_done", { rowCount: records.length });
 
+    console.log("[invoice-extract] matching address (exact normalized equality)");
     const match = matchTaskforceAddressToProperty(extractedAddress, records);
     if (!match.ok) {
       invoiceExtractLog("error", "taskforce_match_internal_error", { fileName, errorReason: match.error });
@@ -169,42 +176,44 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }
 
     const matchedPropertyId = String(match.property_id);
-    const matchResult =
-      matchedPropertyId === INVOICE_NOT_FOUND_TOKEN
-        ? "no_match"
-        : { matchedPropertyId, matchedAddress: match.matched_address };
-    invoiceExtractLog("info", "address_match_finished", { fileName, extractedAddress, matchResult });
-
     if (matchedPropertyId === INVOICE_NOT_FOUND_TOKEN) {
       invoiceExtractLog("error", "no_property_match", { fileName, extractedAddress });
+      console.log("[invoice-extract] no Airtable row matched address");
       return NextResponse.json({ success: false, error: INVOICE_NO_MATCH_MESSAGE }, { status: 404 });
     }
 
-    const fin = cfg.financial;
-    const finBuilt = buildFinancialFromPropertyId(matchedPropertyId, fin);
+    invoiceExtractLog("info", "address_match_ok", {
+      fileName,
+      matchedPropertyId,
+      matchedAddress: match.matched_address
+    });
+    console.log("[invoice-extract] matched property_id", matchedPropertyId);
+
+    const pid = matchedPropertyId;
+    const accountNumber = `${pid}-110-60721`;
+    const accountRtaList = `PR# ${pid}-110-60721`;
     const numAmt = parseFloat(inv.amount);
-    const amountIncGst = Number.isFinite(numAmt) ? numAmt : inv.amount;
+    const amountCell = Number.isFinite(numAmt) ? numAmt : inv.amount;
 
     const templatePath = getTaskforceWeeklyTemplatePath();
     console.log("[invoice-extract] loading template", { templatePath });
     invoiceExtractLog("info", "excel_template_load", { templatePath });
 
-    console.log("[invoice-extract] generating Excel", { dataRows: 1 });
-    invoiceExtractLog("info", "excel_generate_start", { dataRows: 1 });
+    console.log("[invoice-extract] writing Excel row 2 (columns A–J)");
+    invoiceExtractLog("info", "excel_generate_start", { row: 2 });
 
-    const xlsx = await buildTaskforceWeeklyExcelBuffer([
-      {
-        ledger: fin.ledger,
-        accountNumber: finBuilt.account_number,
-        gstCode: fin.gstCode,
-        amountIncGst,
-        service: "",
-        address: match.matched_address || extractedAddress,
-        invoiceNumber: inv.invoice_number,
-        hcaReference: matchedPropertyId,
-        accountRtaList: finBuilt.account_rta
-      }
-    ]);
+    const xlsx = await buildTaskforceWeeklyExcelBuffer({
+      ledger: "PR",
+      accountNumber,
+      gstCode: "C",
+      amount: amountCell,
+      service: inv.description_combined,
+      address: inv.address,
+      invoiceNumber: inv.invoice_number,
+      hcaReference: pid,
+      accountRtaList,
+      notes: ""
+    });
     if (!xlsx.ok) {
       invoiceExtractLog("error", "excel_generation_failed", { fileName, errorReason: xlsx.error });
       return jsonError(422, xlsx.error);
@@ -217,7 +226,8 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
         invoice_number: inv.invoice_number,
         amount: inv.amount,
         address: extractedAddress,
-        matched_property_id: matchedPropertyId
+        matched_property_id: matchedPropertyId,
+        description: inv.description_combined
       },
       excel: {
         content_base64: xlsx.buffer.toString("base64"),
@@ -225,6 +235,7 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       }
     };
 
+    console.log("[invoice-extract] success", { filename });
     return jsonInvoiceExtractSuccess(body);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -235,8 +246,8 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       errorReason: message,
       stackPreview: stack?.slice(0, 500)
     });
-    console.error("[invoice-extract] handler error:", message, stack ?? error);
-    return jsonFail500(error);
+    console.error("[invoice-extract] unexpected error:", message, stack ?? error);
+    return handlerErrorResponse(message);
   }
 }
 

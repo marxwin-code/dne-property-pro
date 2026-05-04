@@ -9,6 +9,7 @@ export type InvoiceExtractSuccessBody = {
     amount: string;
     address: string;
     matched_property_id: string;
+    description: string;
   };
   excel: { content_base64: string; filename: string };
 };
