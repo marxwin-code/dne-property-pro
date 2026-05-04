@@ -265,16 +265,17 @@ const enTree = {
   },
   invoiceExtract: {
     kicker: "D&E Labs",
-    title: "Invoice Extract AI",
-    lead: "Upload PDF invoices. We extract key fields, match addresses to your Airtable properties, and download a ledger-ready Excel file.",
+    title: "Taskforce invoice extract",
+    lead: "Upload one Taskforce PDF invoice (max 10MB). We parse the fixed layout, match the address to your Airtable properties table, then return JSON plus the weekly Excel import file.",
     backToLabs: "Back to Labs",
-    uploadLabel: "PDF files (multiple allowed)",
-    uploadHint: "Only .pdf files are processed.",
+    uploadLabel: "PDF invoice (one file, max 10MB)",
+    uploadHint: "Must be a valid PDF (application/pdf).",
     submit: "Extract & download Excel",
     processing: "Processing...",
     download: "Download Excel again",
     errorGeneric: "Something went wrong. Try again.",
-    errorNoPdf: "Please choose at least one PDF.",
+    errorNoPdf: "Please choose exactly one PDF file.",
+    errorFileTooLarge: "PDF exceeds maximum size of {{mb}} MB.",
     successReady: "Your Excel file is ready."
   },
   personality: {
