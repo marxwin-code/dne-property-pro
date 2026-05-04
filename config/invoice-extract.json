@@ -7,7 +7,9 @@
     "gstCode": "C"
   },
   "limits": {
-    "maxUploadBytes": 10485760,
-    "maxPdfChars": 28000
+    "maxUploadBytes": 52428800,
+    "maxPdfChars": 28000,
+    "maxFilesPerBatch": 100,
+    "maxBatchTotalBytes": 52428800
   }
 }

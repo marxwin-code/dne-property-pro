@@ -2,14 +2,23 @@ import { NextResponse } from "next/server";
 
 export type ApiErrorBody = { success: false; error: string };
 
+export type InvoiceExtractInvoiceRow = {
+  invoice_number: string;
+  amount: string;
+  address: string;
+  matched_property_id: string;
+  description: string;
+  source_file: string;
+};
+
 export type InvoiceExtractSuccessBody = {
   success: true;
   data: {
-    invoice_number: string;
-    amount: string;
-    address: string;
-    matched_property_id: string;
-    description: string;
+    files_received: number;
+    invoices_parsed: number;
+    duplicates_removed: number;
+    invoice_count: number;
+    invoices: InvoiceExtractInvoiceRow[];
   };
   excel: { content_base64: string; filename: string };
 };
@@ -36,7 +45,9 @@ export function invoiceExtractEnvSnapshot(): Record<string, string> {
     AIRTABLE_TABLE_NAME: process.env.AIRTABLE_TABLE_NAME?.trim() ? "set" : "unset",
     AIRTABLE_TABLE_NAME_FALLBACK: process.env.AIRTABLE_TABLE_NAME_FALLBACK?.trim() ? "set" : "unset",
     INVOICE_MAX_UPLOAD_BYTES: process.env.INVOICE_MAX_UPLOAD_BYTES?.trim() ? "set" : "unset",
-    INVOICE_MAX_PDF_CHARS: process.env.INVOICE_MAX_PDF_CHARS?.trim() ? "set" : "unset"
+    INVOICE_MAX_PDF_CHARS: process.env.INVOICE_MAX_PDF_CHARS?.trim() ? "set" : "unset",
+    INVOICE_MAX_FILES: process.env.INVOICE_MAX_FILES?.trim() ? "set" : "unset",
+    INVOICE_MAX_BATCH_BYTES: process.env.INVOICE_MAX_BATCH_BYTES?.trim() ? "set" : "unset"
   };
 }
 

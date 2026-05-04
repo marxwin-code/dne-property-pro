@@ -6,19 +6,40 @@ import invoiceLimits from "@/config/invoice-extract.json";
 import { fillTemplate } from "@/lib/i18n/fill-template";
 import { useSiteText } from "@/lib/i18n/use-site-text";
 
+type InvoiceRow = {
+  invoice_number: string;
+  amount: string;
+  address: string;
+  matched_property_id: string;
+  description: string;
+  source_file: string;
+};
+
 type ApiSuccess = {
   success: true;
   data: {
-    invoice_number: string;
-    amount: string;
-    address: string;
-    matched_property_id: string;
-    description: string;
+    files_received: number;
+    invoices_parsed: number;
+    duplicates_removed: number;
+    invoice_count: number;
+    invoices: InvoiceRow[];
   };
   excel: { content_base64: string; filename: string };
 };
 
 type ApiError = { success: false; error: string };
+
+function getLimitNumbers() {
+  const lim = invoiceLimits.limits as {
+    maxFilesPerBatch?: number;
+    maxBatchTotalBytes?: number;
+    maxUploadBytes?: number;
+  };
+  const maxFiles = lim.maxFilesPerBatch ?? 100;
+  const maxBatchBytes = lim.maxBatchTotalBytes ?? lim.maxUploadBytes ?? 52428800;
+  const maxMb = Math.round(maxBatchBytes / (1024 * 1024));
+  return { maxFiles, maxBatchBytes, maxMb };
+}
 
 export default function InvoiceExtractPage() {
   const t = useSiteText();
@@ -39,25 +60,35 @@ export default function InvoiceExtractPage() {
 
   const handleSubmit = async () => {
     const input = inputRef.current;
-    if (!input?.files?.length) {
+    const list = input?.files;
+    if (!list?.length) {
       setError(tx.errorNoPdf);
       return;
     }
-    if (input.files.length !== 1) {
-      setError(tx.errorNoPdf);
+
+    const { maxFiles, maxBatchBytes, maxMb } = getLimitNumbers();
+
+    if (list.length > maxFiles) {
+      setError(fillTemplate(tx.errorTooManyFiles, { max: String(maxFiles) }));
       return;
     }
-    const file = input.files[0];
-    const mime = (file.type || "").toLowerCase();
-    const nameOk = file.name.toLowerCase().endsWith(".pdf");
-    if (mime !== "application/pdf" && !nameOk) {
-      setError(tx.errorNoPdf);
-      return;
+
+    let total = 0;
+    const fileArr: File[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i]!;
+      const mime = (file.type || "").toLowerCase();
+      const nameOk = file.name.toLowerCase().endsWith(".pdf");
+      if (mime !== "application/pdf" && !nameOk) {
+        setError(`${file.name}: Only PDF files are accepted.`);
+        return;
+      }
+      total += file.size;
+      fileArr.push(file);
     }
-    const maxBytes = invoiceLimits.limits.maxUploadBytes;
-    if (file.size > maxBytes) {
-      const mb = Math.round(maxBytes / (1024 * 1024));
-      setError(fillTemplate(tx.errorFileTooLarge, { mb }));
+
+    if (total > maxBatchBytes) {
+      setError(fillTemplate(tx.errorBatchTooLarge, { mb: String(maxMb) }));
       return;
     }
 
@@ -68,7 +99,9 @@ export default function InvoiceExtractPage() {
 
     try {
       const formData = new FormData();
-      formData.append("files", file);
+      for (const f of fileArr) {
+        formData.append("files", f);
+      }
       const res = await fetch("/api/invoice-extract", {
         method: "POST",
         body: formData
@@ -126,6 +159,7 @@ export default function InvoiceExtractPage() {
             ref={inputRef}
             type="file"
             accept="application/pdf,.pdf"
+            multiple
             className="mt-4 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-brand-700"
           />
 
@@ -146,14 +180,28 @@ export default function InvoiceExtractPage() {
 
           {summary ? (
             <div className="mt-6 rounded-xl border border-stone-200 bg-stone-50/80 p-4 text-left text-sm text-slate-800">
-              <p className="font-semibold text-lux-ink">Match summary</p>
+              <p className="font-semibold text-lux-ink">Batch summary</p>
               <ul className="mt-2 list-inside list-disc space-y-1">
-                <li>Invoice #: {summary.invoice_number || "—"}</li>
-                <li>Amount: {summary.amount || "—"}</li>
-                <li>Address: {summary.address || "—"}</li>
-                <li>Matched property_id: {summary.matched_property_id}</li>
-                <li>Description: {summary.description || "—"}</li>
+                <li>Files uploaded: {summary.files_received}</li>
+                <li>Invoices parsed: {summary.invoices_parsed}</li>
+                <li>Duplicates removed (by invoice #): {summary.duplicates_removed}</li>
+                <li>Rows in Excel: {summary.invoice_count}</li>
               </ul>
+              {summary.invoices.length ? (
+                <div className="mt-4 max-h-48 overflow-y-auto border-t border-stone-200 pt-3 text-xs">
+                  <p className="font-semibold text-lux-ink">Invoices</p>
+                  <ul className="mt-2 space-y-2">
+                    {summary.invoices.map((inv) => (
+                      <li key={`${inv.invoice_number}-${inv.source_file}`} className="border-b border-stone-100 pb-2">
+                        <span className="font-medium">{inv.invoice_number}</span> — {inv.amount} — property{" "}
+                        {inv.matched_property_id}
+                        <br />
+                        <span className="text-slate-500">{inv.source_file}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

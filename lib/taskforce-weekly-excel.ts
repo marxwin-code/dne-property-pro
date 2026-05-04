@@ -27,13 +27,17 @@ export type TaskforceWeeklyExcelRow = {
 };
 
 /**
- * Loads template.xlsx, uses **first sheet only**, writes **row 2** columns A–J. No new workbook.
+ * Loads template.xlsx, uses **first sheet only**, writes rows **2 … (1 + rows.length)** columns A–J.
  */
 export async function buildTaskforceWeeklyExcelBuffer(
-  row: TaskforceWeeklyExcelRow
+  rows: TaskforceWeeklyExcelRow[]
 ): Promise<{ ok: true; buffer: Buffer } | { ok: false; error: string }> {
   const templatePath = getTaskforceWeeklyTemplatePath();
   try {
+    if (rows.length === 0) {
+      return { ok: false, error: "No invoice rows to write to Excel." };
+    }
+
     if (!fs.existsSync(templatePath)) {
       const msg = `Missing Taskforce Excel template at ${templatePath}. Run: npm run generate:taskforce-template`;
       invoiceExtractLog("error", "taskforce_template_missing", { templatePath });
@@ -48,21 +52,24 @@ export async function buildTaskforceWeeklyExcelBuffer(
       return { ok: false, error: "Template workbook has no worksheets." };
     }
 
-    const r = ws.getRow(2);
-    const cells: (string | number)[] = [
-      row.ledger,
-      row.accountNumber,
-      row.gstCode,
-      row.amount,
-      row.service,
-      row.address,
-      row.invoiceNumber,
-      row.hcaReference,
-      row.accountRtaList,
-      row.notes
-    ];
-    for (let i = 0; i < cells.length; i++) {
-      r.getCell(i + 1).value = cells[i];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const r = ws.getRow(2 + i);
+      const cells: (string | number)[] = [
+        row.ledger,
+        row.accountNumber,
+        row.gstCode,
+        row.amount,
+        row.service,
+        row.address,
+        row.invoiceNumber,
+        row.hcaReference,
+        row.accountRtaList,
+        row.notes
+      ];
+      for (let c = 0; c < cells.length; c++) {
+        r.getCell(c + 1).value = cells[c];
+      }
     }
 
     const buf = await wb.xlsx.writeBuffer();
