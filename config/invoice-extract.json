@@ -1,8 +1,4 @@
 {
-  "airtable": {
-    "addressFieldCandidates": ["address", "location", "Address", "Location", "suburb"],
-    "propertyIdFieldCandidates": ["property_id", "Property_ID", "propertyId"]
-  },
   "financial": {
     "padLength": 6,
     "middleSuffix": "-110-60721",

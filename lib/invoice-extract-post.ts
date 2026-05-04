@@ -1,4 +1,5 @@
 import { PDFParse } from "pdf-parse";
+import { NextResponse } from "next/server";
 import {
   invoiceExtractEnvSnapshot,
   jsonError,
@@ -39,8 +40,13 @@ async function pdfBufferToText(buffer: Buffer): Promise<{ ok: true; text: string
   }
 }
 
+function jsonFail500(error: unknown): NextResponse<{ success: false; error: string }> {
+  const message = error instanceof Error ? error.message : String(error);
+  return NextResponse.json({ success: false, error: message }, { status: 500 });
+}
+
 /**
- * POST /api/invoice-extract — Taskforce-only pipeline (PDF → parse → Airtable → weekly Excel). JSON-only responses.
+ * POST /api/invoice-extract — Taskforce-only pipeline. All thrown errors become JSON 500 with `error.message`.
  */
 export async function handleInvoiceExtractPost(request: Request): Promise<Response> {
   const snapshot = invoiceExtractEnvSnapshot();
@@ -103,6 +109,8 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       return jsonError(422, pdf.error);
     }
 
+    console.log("PDF parsed:", pdf.text);
+
     const extracted = parseTaskforceInvoiceFromPdfText(pdf.text, limits.maxPdfChars);
     if (!extracted.ok) {
       invoiceExtractLog("error", "taskforce_parse_failed", { fileName, errorReason: extracted.error });
@@ -111,12 +119,12 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
 
     const inv = extracted.data;
     const extractedAddress = inv.address.trim();
+    console.log("Extracted address:", extractedAddress);
     invoiceExtractLog("info", "address_extracted", { fileName, extractedAddress });
 
+    console.log("Querying Airtable...");
     const propertyLoad = await fetchInvoicePropertyRows({
-      tableName: cfg.tableName,
-      addressFields: cfg.addressFields,
-      propertyIdFields: cfg.propertyIdFields
+      tableName: cfg.tableName
     });
     if (!propertyLoad.ok) {
       invoiceExtractLog("error", "airtable_load_failed", {
@@ -129,7 +137,10 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       return jsonError(mapAirtableStatus(propertyLoad.status), propertyLoad.error);
     }
 
-    const match = matchTaskforceAddressToProperty(extractedAddress, propertyLoad.rows);
+    const records = propertyLoad.rows;
+    console.log("Airtable result:", records);
+
+    const match = matchTaskforceAddressToProperty(extractedAddress, records);
     if (!match.ok) {
       invoiceExtractLog("error", "taskforce_match_internal_error", { fileName, errorReason: match.error });
       return jsonError(422, match.error);
@@ -144,7 +155,7 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
 
     if (matchedPropertyId === INVOICE_NOT_FOUND_TOKEN) {
       invoiceExtractLog("error", "no_property_match", { fileName, extractedAddress });
-      return jsonError(404, INVOICE_NO_MATCH_MESSAGE);
+      return NextResponse.json({ success: false, error: INVOICE_NO_MATCH_MESSAGE }, { status: 404 });
     }
 
     const fin = cfg.financial;
@@ -186,13 +197,15 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     };
 
     return jsonInvoiceExtractSuccess(body);
-  } catch (e) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     invoiceExtractLog("error", "handler_unexpected_error", {
       ...snapshot,
       ...requestInfo,
-      errorReason: String(e)
+      errorReason: message
     });
-    return jsonError(502, "Invoice extract could not complete. Please try again.");
+    console.error("[invoice-extract] handler error:", error);
+    return jsonFail500(error);
   }
 }
 

@@ -34,8 +34,6 @@ export function invoiceExtractEnvSnapshot(): Record<string, string> {
     AIRTABLE_BASE_ID: mask(process.env.AIRTABLE_BASE_ID),
     AIRTABLE_TABLE_NAME: process.env.AIRTABLE_TABLE_NAME?.trim() ? "set" : "unset",
     AIRTABLE_TABLE_NAME_FALLBACK: process.env.AIRTABLE_TABLE_NAME_FALLBACK?.trim() ? "set" : "unset",
-    AIRTABLE_FIELD_ADDRESS: process.env.AIRTABLE_FIELD_ADDRESS?.trim() ? "set" : "unset",
-    AIRTABLE_FIELD_PROPERTY_ID: process.env.AIRTABLE_FIELD_PROPERTY_ID?.trim() ? "set" : "unset",
     INVOICE_MAX_UPLOAD_BYTES: process.env.INVOICE_MAX_UPLOAD_BYTES?.trim() ? "set" : "unset",
     INVOICE_MAX_PDF_CHARS: process.env.INVOICE_MAX_PDF_CHARS?.trim() ? "set" : "unset"
   };
