@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next build",
     "seed:airtable-properties": "node scripts/seed-airtable-properties.mjs",
-    "airtable:init-properties": "node scripts/airtable/init-and-import-properties.mjs"
+    "airtable:init-properties": "node scripts/airtable/init-and-import-properties.mjs",
+    "generate:taskforce-template": "node scripts/generate-taskforce-template.mjs"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",
