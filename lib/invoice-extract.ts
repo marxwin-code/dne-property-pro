@@ -4,28 +4,21 @@ import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 
 export type InvoicePropertyRow = { address: string; property_id: string };
 
-export function readFirstMappedField(fields: Record<string, unknown>, candidates: string[]): string {
-  for (const key of candidates) {
-    if (!(key in fields)) continue;
-    const v = fields[key];
-    if (v === undefined || v === null) continue;
-    const s = String(v).trim();
-    if (s) return s;
-  }
-  return "";
-}
-
 export type FetchInvoicePropertiesResult =
   | { ok: true; rows: InvoicePropertyRow[] }
   | { ok: false; error: string; status: number };
 
+function fieldString(fields: Record<string, unknown>, key: "address" | "property_id"): string {
+  const v = fields[key];
+  if (v === undefined || v === null) return "";
+  return String(v).trim();
+}
+
 /**
- * Loads rows from Airtable using env-driven table name and field candidate lists.
+ * Loads rows from Airtable using `address` and `property_id` field names only (exact match to base schema).
  */
 export async function fetchInvoicePropertyRows(params: {
   tableName: string;
-  addressFields: string[];
-  propertyIdFields: string[];
 }): Promise<FetchInvoicePropertiesResult> {
   const creds = getAirtableCredentialsOrNull();
   if (!creds) {
@@ -38,24 +31,12 @@ export async function fetchInvoicePropertyRows(params: {
     };
   }
 
-  const { tableName, addressFields, propertyIdFields } = params;
+  const { tableName } = params;
   if (!tableName.trim()) {
     invoiceExtractLog("error", "airtable_table_name_empty", {});
     return {
       ok: false,
       error: "Set AIRTABLE_TABLE_NAME to the Airtable table that holds property rows.",
-      status: 400
-    };
-  }
-  if (addressFields.length === 0 || propertyIdFields.length === 0) {
-    invoiceExtractLog("error", "airtable_field_mapping_empty", {
-      addressFields: addressFields.length,
-      propertyIdFields: propertyIdFields.length
-    });
-    return {
-      ok: false,
-      error:
-        "Configure Airtable field mapping: set AIRTABLE_FIELD_ADDRESS and AIRTABLE_FIELD_PROPERTY_ID (comma-separated column names), or rely on config/invoice-extract.json candidates.",
       status: 400
     };
   }
@@ -92,8 +73,8 @@ export async function fetchInvoicePropertyRows(params: {
       };
       for (const rec of data.records ?? []) {
         const fields = rec.fields ?? {};
-        const address = readFirstMappedField(fields, addressFields);
-        const property_id = readFirstMappedField(fields, propertyIdFields);
+        const address = fieldString(fields, "address");
+        const property_id = fieldString(fields, "property_id");
         rows.push({ address, property_id });
       }
       if (!data.offset) break;

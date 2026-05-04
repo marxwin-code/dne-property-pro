@@ -2,13 +2,6 @@ import invoiceDefaults from "../config/invoice-extract.json";
 
 type Defaults = typeof invoiceDefaults;
 
-function splitEnvCsv(key: string): string[] {
-  return String(process.env[key] ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 function numEnv(key: string, fallback: number): number {
   const n = parseInt(String(process.env[key] ?? ""), 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
@@ -35,14 +28,13 @@ export type InvoiceLimitsConfig = {
 export type InvoiceExtractRuntimeConfig = {
   /** `AIRTABLE_TABLE_NAME` or `AIRTABLE_TABLE_NAME_FALLBACK`; defaults to `properties` for Taskforce. */
   tableName: string;
-  addressFields: string[];
-  propertyIdFields: string[];
   financial: InvoiceFinancialConfig;
   limits: InvoiceLimitsConfig;
 };
 
 /**
- * Taskforce invoice pipeline config: env overrides, `config/invoice-extract.json` for field candidates & financial defaults.
+ * Taskforce invoice pipeline config: env overrides, `config/invoice-extract.json` for financial defaults.
+ * Airtable property rows always use fields `address` and `property_id` only.
  */
 export function loadInvoiceExtractRuntimeConfig(): InvoiceExtractRuntimeConfig {
   const d = invoiceDefaults as Defaults;
@@ -50,11 +42,6 @@ export function loadInvoiceExtractRuntimeConfig(): InvoiceExtractRuntimeConfig {
     String(process.env.AIRTABLE_TABLE_NAME ?? "").trim() ||
     String(process.env.AIRTABLE_TABLE_NAME_FALLBACK ?? "").trim() ||
     "properties";
-
-  const envAddr = splitEnvCsv("AIRTABLE_FIELD_ADDRESS");
-  const envPid = splitEnvCsv("AIRTABLE_FIELD_PROPERTY_ID");
-  const addressFields = envAddr.length > 0 ? envAddr : [...d.airtable.addressFieldCandidates];
-  const propertyIdFields = envPid.length > 0 ? envPid : [...d.airtable.propertyIdFieldCandidates];
 
   const f = d.financial;
   const financial: InvoiceFinancialConfig = {
@@ -79,8 +66,6 @@ export function loadInvoiceExtractRuntimeConfig(): InvoiceExtractRuntimeConfig {
 
   return {
     tableName,
-    addressFields,
-    propertyIdFields,
     financial,
     limits
   };
