@@ -1,18 +1,58 @@
 /**
- * Deterministic extraction for Taskforce PDF invoices (fixed vendor layout).
- * Tuned on typical AU invoice text: labelled lines + totals + street/postcode blocks.
+ * Taskforce invoice PDF text → strict deterministic fields (no heuristics beyond fixed anchors).
  */
 
 export type TaskforceParsedInvoice = {
-  invoice_number: string;
-  /** Decimal string without currency symbol, e.g. "1234.56" */
-  amount: string;
+  /** From "Reference" line; leading `\d+ -` prefix removed. */
   address: string;
+  /** e.g. TF-00143127 */
+  invoice_number: string;
+  /** Decimal string from "TOTAL AUD" line (no currency symbol). */
+  amount: string;
+  /** Description rows joined with "; " */
+  description_combined: string;
 };
 
 function clip(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return text.slice(0, maxChars);
+}
+
+function normalizeLines(pdfText: string): string[] {
+  return clip(pdfText, pdfText.length)
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\u00a0/g, " ").trim())
+    .filter((l) => l.length > 0);
+}
+
+/** Strip optional Taskforce reference id prefix: "208168 - " */
+function stripReferenceIdPrefix(value: string): string {
+  return value.replace(/^\s*\d+\s*-\s*/, "").trim();
+}
+
+/**
+ * Address only from a line starting with Reference: (value same line or next line).
+ */
+function extractAddressFromReference(lines: string[]): string {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const same = /^Reference\s*:\s*(.+)$/i.exec(line);
+    if (same) {
+      const raw = (same[1] ?? "").trim();
+      if (raw) return stripReferenceIdPrefix(raw);
+    }
+    if (/^Reference\s*:\s*$/i.test(line) && i + 1 < lines.length) {
+      const raw = (lines[i + 1] ?? "").trim();
+      if (raw) return stripReferenceIdPrefix(raw);
+    }
+  }
+  return "";
+}
+
+/** Invoice number: TF-######## */
+function extractInvoiceNumber(flat: string): string {
+  const m = flat.replace(/\s+/g, " ").match(/\b(TF-\d+)\b/i);
+  return m?.[1] ? m[1].toUpperCase() : "";
 }
 
 function normalizeAmountDigits(s: string): string {
@@ -24,114 +64,51 @@ function normalizeAmountDigits(s: string): string {
   return dec ? `${intPart}.${dec}` : intPart;
 }
 
-/** Collapse whitespace for cross-line regex. */
-function singleLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function extractInvoiceNumber(lines: string[], flat: string): string {
+/** Amount from line containing TOTAL AUD */
+function extractTotalAud(lines: string[]): string {
   for (const line of lines) {
+    if (!/TOTAL\s+AUD/i.test(line)) continue;
     const m =
-      line.match(
-        /(?:tax\s*)?invoice\s*(?:no|number|#)?\s*[:\s]\s*([A-Za-z0-9][A-Za-z0-9\-_/]*)/i
-      ) ||
-      line.match(/(?:inv\.?|invoice)\s*[:\s#]\s*([A-Za-z0-9][A-Za-z0-9\-_/]*)/i) ||
-      line.match(/\b(?:ref|reference)\s*[:\s]\s*([A-Za-z0-9][A-Za-z0-9\-_/]+)/i);
-    if (m?.[1]) return m[1].trim();
+      line.match(/\$?\s*([\d,]+\.\d{2})\b/) ||
+      line.match(/\$?\s*([\d,]+\.\d{1,2})\b/) ||
+      line.match(/\$?\s*([\d,]+)\b/);
+    if (!m?.[1]) continue;
+    const n = normalizeAmountDigits(m[1]);
+    if (n && Number.isFinite(Number(n))) return n;
   }
-  const flatM =
-    flat.match(
-      /\b(?:tax\s*)?invoice\s*(?:no|number|#)?\s*[:\s]\s*([A-Za-z0-9][A-Za-z0-9\-_/]*)/i
-    ) || flat.match(/\b(?:INV|TF)[- ]?([A-Z0-9]{4,})\b/i);
-  return flatM?.[1]?.trim() ?? "";
-}
-
-function moneyOnLine(line: string): string | null {
-  const matches = [...line.matchAll(/\$?\s*([\d,]+\.\d{2})\b/g)];
-  if (matches.length === 0) return null;
-  const last = matches[matches.length - 1];
-  const raw = last?.[1];
-  if (!raw) return null;
-  const n = normalizeAmountDigits(raw);
-  return n || null;
-}
-
-function extractAmount(lines: string[]): string {
-  const totalKeywords =
-    /(^|\b)(total|amount\s*due|balance\s*due|balance|gst\s*inclusive|inc\.?\s*gst\s*total|total\s*payable)\b/i;
-
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i] ?? "";
-    if (!totalKeywords.test(line)) continue;
-    const fromLine = moneyOnLine(line);
-    if (fromLine) return fromLine;
-  }
-
-  for (const line of lines) {
-    if (!totalKeywords.test(line)) continue;
-    const fromLine = moneyOnLine(line);
-    if (fromLine) return fromLine;
-  }
-
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const fromLine = moneyOnLine(lines[i] ?? "");
-    if (fromLine) return fromLine;
-  }
-
   return "";
 }
 
-function isSectionBreak(line: string): boolean {
-  return /^(invoice|total|abn|acn|phone|email|www\.|bank|payment|due\s*date|tax)/i.test(line);
-}
-
-function extractAddressBlock(lines: string[]): string {
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    const label = /^(property|site|service|job)?\s*address\s*[:\s]?\s*(.*)$/i.exec(line);
-    if (label) {
-      const rest = (label[2] ?? "").trim();
-      const parts: string[] = [];
-      if (rest) parts.push(rest);
-      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
-        const next = lines[j] ?? "";
-        if (!next.trim()) break;
-        if (isSectionBreak(next) && parts.length > 0) break;
-        if (/^(invoice|inv\.?|total|subtotal|abn)/i.test(next) && parts.length > 0) break;
-        parts.push(next.trim());
-      }
-      const joined = parts.join(", ").trim();
-      if (joined.length >= 8) return joined;
-    }
-  }
-
-  const statePost = /\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\s+\d{4}\b/i;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    if (!statePost.test(line)) continue;
-    const block: string[] = [];
-    for (let k = Math.max(0, i - 3); k <= i; k++) {
-      const L = lines[k] ?? "";
-      if (L.length > 3 && !/^(invoice|tax|total|abn|phone)/i.test(L)) block.push(L.trim());
-    }
-    if (block.length) return block.join(", ");
-    return line.trim();
-  }
-
-  const streetish =
-    /\d+\s+.+\b(?:st|street|rd|road|ave|avenue|dr|drive|ct|court|pl|place|way|cres|parade|hwy|highway|blvd|unit|lvl|level)\b/i;
-  for (const line of lines) {
-    if (streetish.test(line) && line.length >= 12 && line.length < 200) {
-      return line.trim();
-    }
-  }
-
-  return "";
-}
+const AMOUNT_ONLY_LINE = /^\$?\s*[\d,]+\.\d{2}\s*$/;
 
 /**
- * Parse Taskforce invoice text. Fails with a stable error message if required fields are missing.
+ * Rows after a line starting with "Description" until TOTAL AUD / SUBTOTAL / GST (exclusive).
  */
+function extractDescriptionCombined(lines: string[]): string {
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^Description\b/i.test(lines[i] ?? "")) {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start < 0) return "";
+
+  const parts: string[] = [];
+  for (let j = start; j < lines.length; j++) {
+    const L = (lines[j] ?? "").trim();
+    if (!L) continue;
+    if (/^TOTAL\s+AUD\b/i.test(L)) break;
+    if (/^SUBTOTAL\b/i.test(L)) break;
+    if (/^GST\b/i.test(L)) break;
+    if (/^Balance\b/i.test(L)) break;
+    if (AMOUNT_ONLY_LINE.test(L)) continue;
+    if (/^Amount\b/i.test(L) && /\$/.test(L)) continue;
+    parts.push(L);
+  }
+  return parts.join("; ");
+}
+
 export function parseTaskforceInvoiceFromPdfText(
   pdfText: string,
   maxChars: number
@@ -141,28 +118,30 @@ export function parseTaskforceInvoiceFromPdfText(
     .split(/\r?\n/)
     .map((l) => l.replace(/\u00a0/g, " ").trim())
     .filter((l) => l.length > 0);
-  const flat = singleLine(text);
+  const flat = text.replace(/\s+/g, " ");
 
-  const invoice_number = extractInvoiceNumber(lines, flat);
-  const amountRaw = extractAmount(lines);
-  const address = extractAddressBlock(lines).trim();
+  const address = extractAddressFromReference(lines).trim();
+  const invoice_number = extractInvoiceNumber(flat);
+  const amountRaw = extractTotalAud(lines);
+  const description_combined = extractDescriptionCombined(lines);
 
+  if (!address) {
+    return { ok: false, error: 'Missing or empty "Reference" line for address extraction.' };
+  }
   if (!invoice_number) {
-    return { ok: false, error: "Could not find an invoice number in the PDF text." };
+    return { ok: false, error: 'Missing invoice number in format "TF-########".' };
   }
-  if (!amountRaw || !Number.isFinite(Number(amountRaw))) {
-    return { ok: false, error: "Could not find a valid total amount in the PDF text." };
-  }
-  if (!address || address.length < 8) {
-    return { ok: false, error: "Could not extract a usable property address from the PDF text." };
+  if (!amountRaw) {
+    return { ok: false, error: 'Missing amount on line containing "TOTAL AUD".' };
   }
 
   return {
     ok: true,
     data: {
+      address,
       invoice_number,
       amount: amountRaw,
-      address
+      description_combined
     }
   };
 }

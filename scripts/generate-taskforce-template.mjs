@@ -1,6 +1,6 @@
 /**
- * Writes lib/invoice-templates/taskforce/template.xlsx (header row only).
- * Run from repo root: node scripts/generate-taskforce-template.mjs
+ * Writes lib/invoice-templates/taskforce/template.xlsx (row 1 headers; data from row 2).
+ * Run from repo root: npm run generate:taskforce-template
  */
 import ExcelJS from "exceljs";
 import fs from "node:fs";
@@ -13,22 +13,23 @@ const out = path.join(__dirname, "..", "lib", "invoice-templates", "taskforce", 
 fs.mkdirSync(path.dirname(out), { recursive: true });
 
 const wb = new ExcelJS.Workbook();
-const ws = wb.addWorksheet("Invoices");
+const ws = wb.addWorksheet("Sheet1");
 const headers = [
   "Ledger",
   "Account Number",
   "GST Code",
-  "Amount (Inc GST)",
+  "Amount",
   "Service",
   "Address",
   "Invoice Number",
   "HCA Reference",
-  "Account number from RTA property list"
+  "Account number from RTA property list",
+  "Notes"
 ];
 ws.addRow(headers);
-headers.forEach((_, i) => {
-  const col = ws.getColumn(i + 1);
-  col.width = [8, 22, 10, 18, 40, 45, 18, 16, 36][i] ?? 12;
+const widths = [8, 28, 10, 14, 48, 48, 18, 16, 40, 12];
+widths.forEach((w, i) => {
+  ws.getColumn(i + 1).width = w;
 });
 
 await wb.xlsx.writeFile(out);

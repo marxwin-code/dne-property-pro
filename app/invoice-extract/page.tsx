@@ -13,6 +13,7 @@ type ApiSuccess = {
     amount: string;
     address: string;
     matched_property_id: string;
+    description: string;
   };
   excel: { content_base64: string; filename: string };
 };
@@ -151,6 +152,7 @@ export default function InvoiceExtractPage() {
                 <li>Amount: {summary.amount || "—"}</li>
                 <li>Address: {summary.address || "—"}</li>
                 <li>Matched property_id: {summary.matched_property_id}</li>
+                <li>Description: {summary.description || "—"}</li>
               </ul>
             </div>
           ) : null}

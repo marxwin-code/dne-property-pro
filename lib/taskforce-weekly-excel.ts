@@ -3,38 +3,39 @@ import path from "node:path";
 import ExcelJS from "exceljs";
 import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 
-/**
- * Taskforce weekly import sheet name in template.xlsx — must match generated template.
- */
-export const TASKFORCE_WEEKLY_SHEET_NAME = "Invoices";
-
 /** Resolved from repo root at runtime (Node / Next.js API route). */
 export function getTaskforceWeeklyTemplatePath(): string {
   return path.join(process.cwd(), "lib", "invoice-templates", "taskforce", "template.xlsx");
 }
 
+/**
+ * One data row: A–J per Taskforce import spec.
+ * A Ledger, B Account Number, C GST Code, D Amount, E Service, F Address,
+ * G Invoice Number, H HCA Reference, I Account number from RTA, J Notes
+ */
 export type TaskforceWeeklyExcelRow = {
   ledger: string;
   accountNumber: string;
   gstCode: string;
-  amountIncGst: string | number;
+  amount: string | number;
   service: string;
   address: string;
   invoiceNumber: string;
   hcaReference: string;
   accountRtaList: string;
+  notes: string;
 };
 
 /**
- * Loads frozen Taskforce template from disk, appends data rows, returns .xlsx buffer.
+ * Loads template.xlsx, uses **first sheet only**, writes **row 2** columns A–J. No new workbook.
  */
-export async function buildTaskforceWeeklyExcelBuffer(rows: TaskforceWeeklyExcelRow[]): Promise<
-  { ok: true; buffer: Buffer } | { ok: false; error: string }
-> {
+export async function buildTaskforceWeeklyExcelBuffer(
+  row: TaskforceWeeklyExcelRow
+): Promise<{ ok: true; buffer: Buffer } | { ok: false; error: string }> {
   const templatePath = getTaskforceWeeklyTemplatePath();
   try {
     if (!fs.existsSync(templatePath)) {
-      const msg = `Missing Taskforce Excel template at ${templatePath}. Run: node scripts/generate-taskforce-template.mjs`;
+      const msg = `Missing Taskforce Excel template at ${templatePath}. Run: npm run generate:taskforce-template`;
       invoiceExtractLog("error", "taskforce_template_missing", { templatePath });
       return { ok: false, error: msg };
     }
@@ -42,26 +43,26 @@ export async function buildTaskforceWeeklyExcelBuffer(rows: TaskforceWeeklyExcel
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(templatePath);
 
-    const ws =
-      wb.getWorksheet(TASKFORCE_WEEKLY_SHEET_NAME) ??
-      wb.worksheets[0] ??
-      null;
+    const ws = wb.worksheets[0] ?? null;
     if (!ws) {
       return { ok: false, error: "Template workbook has no worksheets." };
     }
 
-    for (const r of rows) {
-      ws.addRow([
-        r.ledger,
-        r.accountNumber,
-        r.gstCode,
-        r.amountIncGst,
-        r.service,
-        r.address,
-        r.invoiceNumber,
-        r.hcaReference,
-        r.accountRtaList
-      ]);
+    const r = ws.getRow(2);
+    const cells: (string | number)[] = [
+      row.ledger,
+      row.accountNumber,
+      row.gstCode,
+      row.amount,
+      row.service,
+      row.address,
+      row.invoiceNumber,
+      row.hcaReference,
+      row.accountRtaList,
+      row.notes
+    ];
+    for (let i = 0; i < cells.length; i++) {
+      r.getCell(i + 1).value = cells[i];
     }
 
     const buf = await wb.xlsx.writeBuffer();
