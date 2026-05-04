@@ -246,16 +246,17 @@ export const zh: SiteText = {
   },
   invoiceExtract: {
     kicker: "D&E Labs",
-    title: "发票提取 AI",
-    lead: "上传 PDF 发票：提取关键字段、与 Airtable 房源地址匹配，并下载适合台账的 Excel。",
+    title: "Taskforce 发票提取",
+    lead: "上传一份 Taskforce PDF 发票（最大 10MB）：按固定版式解析、与 Airtable 房源表匹配地址，返回 JSON 并下载周导入 Excel。",
     backToLabs: "返回 Labs",
-    uploadLabel: "PDF 文件（可多选）",
-    uploadHint: "仅处理 .pdf 文件。",
+    uploadLabel: "PDF 发票（单文件，最大 10MB）",
+    uploadHint: "须为有效 PDF（application/pdf）。",
     submit: "提取并下载 Excel",
     processing: "处理中...",
     download: "再次下载 Excel",
     errorGeneric: "出错了，请重试。",
-    errorNoPdf: "请至少选择一个 PDF。",
+    errorNoPdf: "请选择恰好一个 PDF 文件。",
+    errorFileTooLarge: "PDF 超过最大 {{mb}} MB。",
     successReady: "Excel 已生成。"
   },
   personality: {

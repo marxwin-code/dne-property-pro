@@ -1,0 +1,17 @@
+{
+  "airtable": {
+    "addressFieldCandidates": ["address", "location", "Address", "Location", "suburb"],
+    "propertyIdFieldCandidates": ["property_id", "Property_ID", "propertyId"]
+  },
+  "financial": {
+    "padLength": 6,
+    "middleSuffix": "-110-60721",
+    "rtaPrefix": "PR#",
+    "ledger": "PR",
+    "gstCode": "C"
+  },
+  "limits": {
+    "maxUploadBytes": 10485760,
+    "maxPdfChars": 28000
+  }
+}

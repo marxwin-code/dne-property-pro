@@ -325,7 +325,8 @@ type AirtableRecord = {
 export function getAirtableEnv() {
   const apiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
-  const leadsTable = process.env.AIRTABLE_TABLE_NAME || "Leads";
+  /** Leads table — `AIRTABLE_LEADS_TABLE_NAME` (default `Leads`). Not `AIRTABLE_TABLE_NAME` (used for generic record APIs such as invoice extract). */
+  const leadsTable = process.env.AIRTABLE_LEADS_TABLE_NAME?.trim() || "Leads";
   const listingsTable =
     process.env.AIRTABLE_LISTINGS_TABLE_NAME ||
     process.env.AIRTABLE_PROPERTIES_TABLE_NAME ||

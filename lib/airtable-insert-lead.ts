@@ -1,15 +1,15 @@
 import { getAirtableEnv } from "./airtable";
 import { withRetry } from "./retry";
 
-/** Writes one row to the Leads table (`AIRTABLE_TABLE_NAME`, default `Leads`). */
+/** Writes one row to the Leads table (`AIRTABLE_LEADS_TABLE_NAME`, default `Leads`). */
 export async function insertLeadRecord(fields: Record<string, string | number>): Promise<void> {
-  const { apiKey, baseId } = getAirtableEnv();
+  const { apiKey, baseId, leadsTable } = getAirtableEnv();
   if (!apiKey || !baseId) {
     console.warn("[insert-lead] Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID — skip.");
     return;
   }
 
-  const tableName = process.env.AIRTABLE_TABLE_NAME || "Leads";
+  const tableName = leadsTable;
   const url = `https://api.airtable.com/v0/${encodeURIComponent(baseId)}/${encodeURIComponent(tableName)}`;
 
   await withRetry(
