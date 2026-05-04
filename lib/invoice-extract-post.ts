@@ -6,7 +6,11 @@ import {
   jsonInvoiceExtractSuccess,
   type InvoiceExtractSuccessBody
 } from "@/lib/api-json";
-import { INVOICE_NOT_FOUND_TOKEN, INVOICE_NO_MATCH_MESSAGE } from "@/lib/invoice-extract-constants";
+import {
+  INVOICE_EXTRACT_AIRTABLE_TABLE,
+  INVOICE_NOT_FOUND_TOKEN,
+  INVOICE_NO_MATCH_MESSAGE
+} from "@/lib/invoice-extract-constants";
 import { loadInvoiceExtractRuntimeConfig } from "@/lib/invoice-extract-config";
 import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 import {
@@ -15,7 +19,10 @@ import {
 } from "@/lib/invoice-extract";
 import { matchTaskforceAddressToProperty } from "@/lib/taskforce-address-match";
 import { parseTaskforceInvoiceFromPdfText } from "@/lib/taskforce-invoice-parse";
-import { buildTaskforceWeeklyExcelBuffer } from "@/lib/taskforce-weekly-excel";
+import {
+  buildTaskforceWeeklyExcelBuffer,
+  getTaskforceWeeklyTemplatePath
+} from "@/lib/taskforce-weekly-excel";
 
 function mapAirtableStatus(status: number): number {
   if (status >= 500) return 502;
@@ -53,6 +60,9 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
   const requestInfo = { method: request.method, url: request.url };
 
   try {
+    console.log("[invoice-extract] request received", requestInfo);
+    invoiceExtractLog("info", "request_received", { ...requestInfo, ...snapshot });
+
     const cfg = loadInvoiceExtractRuntimeConfig();
     const { limits } = cfg;
 
@@ -103,6 +113,9 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       return jsonError(400, "File is not a valid PDF.");
     }
 
+    console.log("[invoice-extract] reading PDF", { fileName, bytes: buf.length });
+    invoiceExtractLog("info", "pdf_read_start", { fileName, bytes: buf.length });
+
     const pdf = await pdfBufferToText(buf);
     if (!pdf.ok) {
       invoiceExtractLog("error", "pdf_text_pipeline_failed", { fileName, errorReason: pdf.error });
@@ -119,12 +132,20 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
 
     const inv = extracted.data;
     const extractedAddress = inv.address.trim();
-    console.log("Extracted address:", extractedAddress);
+    console.log("[invoice-extract] extracted address:", extractedAddress);
     invoiceExtractLog("info", "address_extracted", { fileName, extractedAddress });
 
-    console.log("Querying Airtable...");
+    console.log("[invoice-extract] calling Airtable", {
+      table: INVOICE_EXTRACT_AIRTABLE_TABLE,
+      fields: ["address", "property_id"]
+    });
+    invoiceExtractLog("info", "airtable_fetch_start", {
+      table: INVOICE_EXTRACT_AIRTABLE_TABLE,
+      fields: ["address", "property_id"]
+    });
+
     const propertyLoad = await fetchInvoicePropertyRows({
-      tableName: cfg.tableName
+      tableName: INVOICE_EXTRACT_AIRTABLE_TABLE
     });
     if (!propertyLoad.ok) {
       invoiceExtractLog("error", "airtable_load_failed", {
@@ -138,7 +159,8 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }
 
     const records = propertyLoad.rows;
-    console.log("Airtable result:", records);
+    console.log("[invoice-extract] Airtable loaded row count:", records.length);
+    invoiceExtractLog("info", "airtable_fetch_done", { rowCount: records.length });
 
     const match = matchTaskforceAddressToProperty(extractedAddress, records);
     if (!match.ok) {
@@ -163,6 +185,13 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     const numAmt = parseFloat(inv.amount);
     const amountIncGst = Number.isFinite(numAmt) ? numAmt : inv.amount;
 
+    const templatePath = getTaskforceWeeklyTemplatePath();
+    console.log("[invoice-extract] loading template", { templatePath });
+    invoiceExtractLog("info", "excel_template_load", { templatePath });
+
+    console.log("[invoice-extract] generating Excel", { dataRows: 1 });
+    invoiceExtractLog("info", "excel_generate_start", { dataRows: 1 });
+
     const xlsx = await buildTaskforceWeeklyExcelBuffer([
       {
         ledger: fin.ledger,
@@ -178,7 +207,7 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     ]);
     if (!xlsx.ok) {
       invoiceExtractLog("error", "excel_generation_failed", { fileName, errorReason: xlsx.error });
-      return jsonError(502, xlsx.error);
+      return jsonError(422, xlsx.error);
     }
 
     const filename = `taskforce-weekly-${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -199,12 +228,14 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     return jsonInvoiceExtractSuccess(body);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     invoiceExtractLog("error", "handler_unexpected_error", {
       ...snapshot,
       ...requestInfo,
-      errorReason: message
+      errorReason: message,
+      stackPreview: stack?.slice(0, 500)
     });
-    console.error("[invoice-extract] handler error:", error);
+    console.error("[invoice-extract] handler error:", message, stack ?? error);
     return jsonFail500(error);
   }
 }
