@@ -95,9 +95,8 @@ const enTree = {
       },
       {
         title: "Invoice Extract AI",
-        description:
-          "Automatically extract invoice data into structured formats—coming online soon.",
-        href: "/labs"
+        description: "Automatically extract invoice data into Excel and match to property records.",
+        href: "/invoice-extract"
       },
       {
         title: "AI 360",
@@ -179,8 +178,8 @@ const enTree = {
         title: "Invoice Automation System",
         description:
           "Automated invoice extraction system improving efficiency and reducing manual work.",
-        action: "View Details",
-        href: "/labs"
+        action: "Open tool",
+        href: "/invoice-extract"
       }
     ],
     ctaTitle: "Want something similar?",
@@ -225,9 +224,9 @@ const enTree = {
       {
         name: "Invoice Extract AI",
         description: "Automatically extract invoice data into Excel.",
-        button: "Coming Soon",
-        href: "#",
-        active: false,
+        button: "Open tool",
+        href: "/invoice-extract",
+        active: true,
         tone: "slate" as const,
         featured: false
       }
@@ -263,6 +262,20 @@ const enTree = {
     formPhone: "Phone",
     formMessage: "Message",
     formSuccess: "Thanks, we will contact you within 24 hours."
+  },
+  invoiceExtract: {
+    kicker: "D&E Labs",
+    title: "Invoice Extract AI",
+    lead: "Upload PDF invoices. We extract key fields, match addresses to your Airtable properties, and download a ledger-ready Excel file.",
+    backToLabs: "Back to Labs",
+    uploadLabel: "PDF files (multiple allowed)",
+    uploadHint: "Only .pdf files are processed.",
+    submit: "Extract & download Excel",
+    processing: "Processing...",
+    download: "Download Excel again",
+    errorGeneric: "Something went wrong. Try again.",
+    errorNoPdf: "Please choose at least one PDF.",
+    successReady: "Your Excel file is ready."
   },
   personality: {
     landingKicker: "Personality Test",

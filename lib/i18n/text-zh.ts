@@ -89,8 +89,8 @@ export const zh: SiteText = {
       },
       {
         title: "Invoice Extract AI",
-        description: "自动提取发票数据并结构化——即将上线。",
-        href: "/labs"
+        description: "自动提取发票数据到 Excel，并与房源记录匹配。",
+        href: "/invoice-extract"
       },
       {
         title: "AI 360",
@@ -164,8 +164,8 @@ export const zh: SiteText = {
       {
         title: "发票自动化系统",
         description: "自动提取发票，提高效率并减少人工。",
-        action: "了解详情",
-        href: "/labs"
+        action: "打开工具",
+        href: "/invoice-extract"
       }
     ],
     ctaTitle: "想要类似方案？",
@@ -208,9 +208,9 @@ export const zh: SiteText = {
       {
         name: "Invoice Extract AI",
         description: "自动将发票数据提取到 Excel。",
-        button: "即将推出",
-        href: "#",
-        active: false,
+        button: "打开工具",
+        href: "/invoice-extract",
+        active: true,
         tone: "slate",
         featured: false
       }
@@ -243,6 +243,20 @@ export const zh: SiteText = {
     formPhone: "电话",
     formMessage: "留言",
     formSuccess: "感谢，我们将在24小时内联系您。"
+  },
+  invoiceExtract: {
+    kicker: "D&E Labs",
+    title: "发票提取 AI",
+    lead: "上传 PDF 发票：提取关键字段、与 Airtable 房源地址匹配，并下载适合台账的 Excel。",
+    backToLabs: "返回 Labs",
+    uploadLabel: "PDF 文件（可多选）",
+    uploadHint: "仅处理 .pdf 文件。",
+    submit: "提取并下载 Excel",
+    processing: "处理中...",
+    download: "再次下载 Excel",
+    errorGeneric: "出错了，请重试。",
+    errorNoPdf: "请至少选择一个 PDF。",
+    successReady: "Excel 已生成。"
   },
   personality: {
     landingKicker: "性格测试",
