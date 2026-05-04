@@ -4,6 +4,7 @@ import {
   invoiceExtractEnvSnapshot,
   jsonError,
   jsonInvoiceExtractSuccess,
+  type InvoiceExtractInvoiceRow,
   type InvoiceExtractSuccessBody
 } from "@/lib/api-json";
 import {
@@ -16,9 +17,11 @@ import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 import { fetchInvoicePropertyRows } from "@/lib/invoice-extract";
 import { matchTaskforceAddressToProperty } from "@/lib/taskforce-address-match";
 import { parseTaskforceInvoiceFromPdfText } from "@/lib/taskforce-invoice-parse";
+import type { TaskforceParsedInvoice } from "@/lib/taskforce-invoice-parse";
 import {
   buildTaskforceWeeklyExcelBuffer,
-  getTaskforceWeeklyTemplatePath
+  getTaskforceWeeklyTemplatePath,
+  type TaskforceWeeklyExcelRow
 } from "@/lib/taskforce-weekly-excel";
 
 function mapAirtableStatus(status: number): number {
@@ -48,8 +51,33 @@ function handlerErrorResponse(message: string): NextResponse<{ success: false; e
   return NextResponse.json({ success: false, error: message }, { status: 422 });
 }
 
+type ParsedInvoiceRow = {
+  fileName: string;
+  invoice: TaskforceParsedInvoice;
+  matchedPropertyId: string;
+};
+
+function toExcelRow(inv: TaskforceParsedInvoice, pid: string): TaskforceWeeklyExcelRow {
+  const accountNumber = `${pid}-110-60721`;
+  const accountRtaList = `PR# ${pid}-110-60721`;
+  const numAmt = parseFloat(inv.amount);
+  const amountCell = Number.isFinite(numAmt) ? numAmt : inv.amount;
+  return {
+    ledger: "PR",
+    accountNumber,
+    gstCode: "C",
+    amount: amountCell,
+    service: inv.description_combined,
+    address: inv.address,
+    invoiceNumber: inv.invoice_number,
+    hcaReference: pid,
+    accountRtaList,
+    notes: ""
+  };
+}
+
 /**
- * POST /api/invoice-extract — deterministic Taskforce pipeline (no AI). JSON-only responses.
+ * POST /api/invoice-extract — batch Taskforce PDFs → one deduped Excel (no AI).
  */
 export async function handleInvoiceExtractPost(request: Request): Promise<Response> {
   const snapshot = invoiceExtractEnvSnapshot();
@@ -62,9 +90,12 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     const cfg = loadInvoiceExtractRuntimeConfig();
     const { limits } = cfg;
 
-    if (contentLengthExceeds(request, limits.maxUploadBytes)) {
+    if (contentLengthExceeds(request, limits.maxBatchTotalBytes)) {
       invoiceExtractLog("error", "payload_too_large", { ...snapshot, ...requestInfo });
-      return jsonError(413, "Request body exceeds maximum allowed size.");
+      return jsonError(
+        413,
+        `Request body exceeds maximum batch size of ${Math.round(limits.maxBatchTotalBytes / (1024 * 1024))} MB.`
+      );
     }
 
     let formData: FormData;
@@ -76,74 +107,45 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }
 
     const files = formData.getAll("files").filter((v): v is File => v instanceof File);
-    if (files.length !== 1) {
-      invoiceExtractLog("error", "invalid_file_count", { count: files.length, ...requestInfo });
-      return jsonError(400, "Upload exactly one PDF file.");
+    const filesReceived = files.length;
+
+    if (filesReceived < 1) {
+      invoiceExtractLog("error", "invalid_file_count", { count: filesReceived, ...requestInfo });
+      return jsonError(400, "Upload at least one PDF file.");
     }
 
-    const file = files[0];
-    const fileName = file.name || "upload.pdf";
+    if (filesReceived > limits.maxFilesPerBatch) {
+      invoiceExtractLog("error", "too_many_files", { count: filesReceived, max: limits.maxFilesPerBatch });
+      return jsonError(400, `You can upload at most ${limits.maxFilesPerBatch} PDF files per request.`);
+    }
 
-    if (file.size > limits.maxUploadBytes) {
-      invoiceExtractLog("error", "file_too_large", {
-        fileName,
-        size: file.size,
-        maxUploadBytes: limits.maxUploadBytes
-      });
+    let totalBytes = 0;
+    for (const f of files) {
+      totalBytes += f.size;
+    }
+    if (totalBytes > limits.maxBatchTotalBytes) {
+      invoiceExtractLog("error", "batch_total_too_large", { totalBytes, max: limits.maxBatchTotalBytes });
       return jsonError(
         413,
-        `PDF exceeds maximum size of ${Math.round(limits.maxUploadBytes / (1024 * 1024))} MB.`
+        `Total upload size exceeds ${Math.round(limits.maxBatchTotalBytes / (1024 * 1024))} MB.`
       );
     }
 
-    const mime = (file.type || "").toLowerCase();
-    const nameOk = fileName.toLowerCase().endsWith(".pdf");
-    if (mime !== "application/pdf" && !nameOk) {
-      invoiceExtractLog("error", "invalid_mime", { fileName, mime, ...requestInfo });
-      return jsonError(400, "Only PDF files are accepted.");
+    for (const file of files) {
+      const fileName = file.name || "upload.pdf";
+      if (file.size > limits.maxBatchTotalBytes) {
+        return jsonError(413, `File "${fileName}" exceeds maximum batch size per file.`);
+      }
+      const mime = (file.type || "").toLowerCase();
+      const nameOk = fileName.toLowerCase().endsWith(".pdf");
+      if (mime !== "application/pdf" && !nameOk) {
+        invoiceExtractLog("error", "invalid_mime", { fileName, mime, ...requestInfo });
+        return jsonError(400, `Not a PDF: "${fileName}".`);
+      }
     }
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    if (!isPdfMagic(buf)) {
-      invoiceExtractLog("error", "pdf_magic_invalid", { fileName, ...requestInfo });
-      return jsonError(400, "File is not a valid PDF.");
-    }
-
-    console.log("[invoice-extract] reading PDF", { fileName, bytes: buf.length });
-    invoiceExtractLog("info", "pdf_read_start", { fileName, bytes: buf.length });
-
-    const pdf = await pdfBufferToText(buf);
-    if (!pdf.ok) {
-      invoiceExtractLog("error", "pdf_text_pipeline_failed", { fileName, errorReason: pdf.error });
-      return jsonError(422, pdf.error);
-    }
-
-    console.log("[invoice-extract] PDF text length", pdf.text.length);
-    invoiceExtractLog("info", "pdf_text_extracted", { fileName, textLength: pdf.text.length });
-
-    console.log("[invoice-extract] parsing fields (Reference, TF-, TOTAL AUD, Description)");
-    const extracted = parseTaskforceInvoiceFromPdfText(pdf.text, limits.maxPdfChars);
-    if (!extracted.ok) {
-      invoiceExtractLog("error", "taskforce_parse_failed", { fileName, errorReason: extracted.error });
-      return jsonError(422, extracted.error);
-    }
-
-    const inv = extracted.data;
-    const extractedAddress = inv.address.trim();
-    console.log("[invoice-extract] parsed invoice_number", inv.invoice_number);
-    console.log("[invoice-extract] parsed amount", inv.amount);
-    console.log("[invoice-extract] extracted address (Reference)", extractedAddress);
-    console.log("[invoice-extract] description_combined length", inv.description_combined.length);
-    invoiceExtractLog("info", "taskforce_parse_ok", {
-      fileName,
-      invoice_number: inv.invoice_number,
-      amount: inv.amount,
-      addressLen: extractedAddress.length
-    });
-
-    console.log("[invoice-extract] calling Airtable", {
-      table: INVOICE_EXTRACT_AIRTABLE_TABLE,
-      fields: ["address", "property_id"]
+    console.log("[invoice-extract] loading Airtable properties once", {
+      table: INVOICE_EXTRACT_AIRTABLE_TABLE
     });
     invoiceExtractLog("info", "airtable_fetch_start", {
       table: INVOICE_EXTRACT_AIRTABLE_TABLE,
@@ -155,7 +157,6 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     });
     if (!propertyLoad.ok) {
       invoiceExtractLog("error", "airtable_load_failed", {
-        fileName,
         ...snapshot,
         ...requestInfo,
         errorReason: propertyLoad.error,
@@ -165,69 +166,103 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }
 
     const records = propertyLoad.rows;
-    console.log("[invoice-extract] Airtable loaded row count:", records.length);
+    console.log("[invoice-extract] Airtable rows:", records.length);
     invoiceExtractLog("info", "airtable_fetch_done", { rowCount: records.length });
 
-    console.log("[invoice-extract] matching address (exact normalized equality)");
-    const match = matchTaskforceAddressToProperty(extractedAddress, records);
-    if (!match.ok) {
-      invoiceExtractLog("error", "taskforce_match_internal_error", { fileName, errorReason: match.error });
-      return jsonError(422, match.error);
+    const parsed: ParsedInvoiceRow[] = [];
+
+    for (const file of files) {
+      const fileName = file.name || "upload.pdf";
+      console.log("[invoice-extract] reading PDF", { fileName, bytes: file.size });
+      invoiceExtractLog("info", "pdf_read_start", { fileName, bytes: file.size });
+
+      const buf = Buffer.from(await file.arrayBuffer());
+      if (!isPdfMagic(buf)) {
+        invoiceExtractLog("error", "pdf_magic_invalid", { fileName, ...requestInfo });
+        return jsonError(400, `File is not a valid PDF: "${fileName}".`);
+      }
+
+      const pdf = await pdfBufferToText(buf);
+      if (!pdf.ok) {
+        invoiceExtractLog("error", "pdf_text_pipeline_failed", { fileName, errorReason: pdf.error });
+        return jsonError(422, `${fileName}: ${pdf.error}`);
+      }
+
+      console.log("[invoice-extract] parsing", fileName);
+      const extracted = parseTaskforceInvoiceFromPdfText(pdf.text, limits.maxPdfChars);
+      if (!extracted.ok) {
+        invoiceExtractLog("error", "taskforce_parse_failed", { fileName, errorReason: extracted.error });
+        return jsonError(422, `${fileName}: ${extracted.error}`);
+      }
+
+      const inv = extracted.data;
+      const extractedAddress = inv.address.trim();
+      const match = matchTaskforceAddressToProperty(extractedAddress, records);
+      if (!match.ok) {
+        invoiceExtractLog("error", "taskforce_match_internal_error", { fileName, errorReason: match.error });
+        return jsonError(422, `${fileName}: ${match.error}`);
+      }
+
+      const matchedPropertyId = String(match.property_id);
+      if (matchedPropertyId === INVOICE_NOT_FOUND_TOKEN) {
+        invoiceExtractLog("error", "no_property_match", { fileName, extractedAddress });
+        return NextResponse.json(
+          { success: false, error: `${fileName}: ${INVOICE_NO_MATCH_MESSAGE}` },
+          { status: 404 }
+        );
+      }
+
+      parsed.push({ fileName, invoice: inv, matchedPropertyId });
+      invoiceExtractLog("info", "invoice_parsed_ok", {
+        fileName,
+        invoice_number: inv.invoice_number,
+        matchedPropertyId
+      });
     }
 
-    const matchedPropertyId = String(match.property_id);
-    if (matchedPropertyId === INVOICE_NOT_FOUND_TOKEN) {
-      invoiceExtractLog("error", "no_property_match", { fileName, extractedAddress });
-      console.log("[invoice-extract] no Airtable row matched address");
-      return NextResponse.json({ success: false, error: INVOICE_NO_MATCH_MESSAGE }, { status: 404 });
+    const invoicesParsed = parsed.length;
+
+    const dedupeKey = (n: string) => n.trim().toUpperCase();
+    const byNumber = new Map<string, ParsedInvoiceRow>();
+    for (const row of parsed) {
+      const k = dedupeKey(row.invoice.invoice_number);
+      if (!byNumber.has(k)) {
+        byNumber.set(k, row);
+      }
     }
+    const unique = [...byNumber.values()];
+    const duplicatesRemoved = invoicesParsed - unique.length;
 
-    invoiceExtractLog("info", "address_match_ok", {
-      fileName,
-      matchedPropertyId,
-      matchedAddress: match.matched_address
-    });
-    console.log("[invoice-extract] matched property_id", matchedPropertyId);
-
-    const pid = matchedPropertyId;
-    const accountNumber = `${pid}-110-60721`;
-    const accountRtaList = `PR# ${pid}-110-60721`;
-    const numAmt = parseFloat(inv.amount);
-    const amountCell = Number.isFinite(numAmt) ? numAmt : inv.amount;
+    const excelRows = unique.map((p) => toExcelRow(p.invoice, p.matchedPropertyId));
 
     const templatePath = getTaskforceWeeklyTemplatePath();
-    console.log("[invoice-extract] loading template", { templatePath });
-    invoiceExtractLog("info", "excel_template_load", { templatePath });
+    console.log("[invoice-extract] loading template", { templatePath, dataRows: excelRows.length });
+    invoiceExtractLog("info", "excel_template_load", { templatePath, dataRows: excelRows.length });
 
-    console.log("[invoice-extract] writing Excel row 2 (columns A–J)");
-    invoiceExtractLog("info", "excel_generate_start", { row: 2 });
-
-    const xlsx = await buildTaskforceWeeklyExcelBuffer({
-      ledger: "PR",
-      accountNumber,
-      gstCode: "C",
-      amount: amountCell,
-      service: inv.description_combined,
-      address: inv.address,
-      invoiceNumber: inv.invoice_number,
-      hcaReference: pid,
-      accountRtaList,
-      notes: ""
-    });
+    const xlsx = await buildTaskforceWeeklyExcelBuffer(excelRows);
     if (!xlsx.ok) {
-      invoiceExtractLog("error", "excel_generation_failed", { fileName, errorReason: xlsx.error });
+      invoiceExtractLog("error", "excel_generation_failed", { errorReason: xlsx.error });
       return jsonError(422, xlsx.error);
     }
+
+    const invoices: InvoiceExtractInvoiceRow[] = unique.map((p) => ({
+      invoice_number: p.invoice.invoice_number,
+      amount: p.invoice.amount,
+      address: p.invoice.address.trim(),
+      matched_property_id: p.matchedPropertyId,
+      description: p.invoice.description_combined,
+      source_file: p.fileName
+    }));
 
     const filename = `taskforce-weekly-${new Date().toISOString().slice(0, 10)}.xlsx`;
     const body: InvoiceExtractSuccessBody = {
       success: true,
       data: {
-        invoice_number: inv.invoice_number,
-        amount: inv.amount,
-        address: extractedAddress,
-        matched_property_id: matchedPropertyId,
-        description: inv.description_combined
+        files_received: filesReceived,
+        invoices_parsed: invoicesParsed,
+        duplicates_removed: duplicatesRemoved,
+        invoice_count: invoices.length,
+        invoices
       },
       excel: {
         content_base64: xlsx.buffer.toString("base64"),
@@ -235,7 +270,11 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       }
     };
 
-    console.log("[invoice-extract] success", { filename });
+    console.log("[invoice-extract] success", {
+      filename,
+      rows: excelRows.length,
+      duplicatesRemoved
+    });
     return jsonInvoiceExtractSuccess(body);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

@@ -21,8 +21,11 @@ export type InvoiceFinancialConfig = {
 };
 
 export type InvoiceLimitsConfig = {
+  /** Upper bound for Content-Length / batch guard (align with maxBatchTotalBytes by default). */
   maxUploadBytes: number;
   maxPdfChars: number;
+  maxFilesPerBatch: number;
+  maxBatchTotalBytes: number;
 };
 
 export type InvoiceExtractRuntimeConfig = {
@@ -56,12 +59,18 @@ export function loadInvoiceExtractRuntimeConfig(): InvoiceExtractRuntimeConfig {
     maxUploadBytes?: number;
     maxPdfChars?: number;
     maxPdfCharsForExtraction?: number;
+    maxFilesPerBatch?: number;
+    maxBatchTotalBytes?: number;
   };
   const defaultPdfChars = lim.maxPdfChars ?? lim.maxPdfCharsForExtraction ?? 28000;
+  const defaultMaxFiles = lim.maxFilesPerBatch ?? 100;
+  const defaultBatchBytes = lim.maxBatchTotalBytes ?? lim.maxUploadBytes ?? 52428800;
 
   const limits: InvoiceLimitsConfig = {
-    maxUploadBytes: numEnvPositive("INVOICE_MAX_UPLOAD_BYTES", lim?.maxUploadBytes ?? 10 * 1024 * 1024),
-    maxPdfChars: numEnvPositive("INVOICE_MAX_PDF_CHARS", defaultPdfChars)
+    maxUploadBytes: numEnvPositive("INVOICE_MAX_UPLOAD_BYTES", lim?.maxUploadBytes ?? defaultBatchBytes),
+    maxPdfChars: numEnvPositive("INVOICE_MAX_PDF_CHARS", defaultPdfChars),
+    maxFilesPerBatch: numEnvPositive("INVOICE_MAX_FILES", defaultMaxFiles),
+    maxBatchTotalBytes: numEnvPositive("INVOICE_MAX_BATCH_BYTES", defaultBatchBytes)
   };
 
   return {
