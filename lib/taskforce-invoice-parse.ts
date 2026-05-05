@@ -30,48 +30,50 @@ function stripReferenceIdPrefix(value: string): string {
   return value.replace(/^\s*\d+\s*-\s*/, "").trim();
 }
 
-/**
- * Address from a line starting with `Reference:` (same line or next line).
- */
-function extractAddressFromReference(lines: string[]): string {
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    const same = /^Reference\s*:\s*(.+)$/i.exec(line);
-    if (same) {
-      const raw = (same[1] ?? "").trim();
-      if (raw) return stripReferenceIdPrefix(raw);
-    }
-    if (/^Reference\s*:\s*$/i.test(line) && i + 1 < lines.length) {
-      const raw = (lines[i + 1] ?? "").trim();
-      if (raw) return stripReferenceIdPrefix(raw);
-    }
-  }
-  return "";
+const STREET_TYPE_RE =
+  /\b(st|street|rd|road|ave|avenue|dr|drive|ln|lane|ct|court|pl|place|cres|crescent|blvd|boulevard|hwy|highway|way|pde|parade|tce|terrace)\b/i;
+const SUBURB_TOKEN_RE = /\b[A-Z]{3,}\b/;
+const VIC_OR_POSTCODE_RE = /\b(VIC\s*\d{4}|VIC|\d{4})\b/i;
+
+function hasStreetNumber(line: string): boolean {
+  return /\b\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?\b/.test(line);
+}
+
+function hasStreetNameAndType(line: string): boolean {
+  return STREET_TYPE_RE.test(line);
+}
+
+function hasSuburb(line: string): boolean {
+  const commaUpper = /,\s*[A-Z][A-Z\s'-]{2,}(?:\s+VIC|\s+\d{4}|$)/.test(line);
+  return commaUpper || SUBURB_TOKEN_RE.test(line);
+}
+
+function hasVicOrPostcode(line: string): boolean {
+  return VIC_OR_POSTCODE_RE.test(line);
+}
+
+function isAddressCandidate(line: string): boolean {
+  if (!line || line.length < 8) return false;
+  return hasStreetNumber(line) && hasStreetNameAndType(line) && hasSuburb(line) && hasVicOrPostcode(line);
 }
 
 /**
- * Deterministic fallback anchors when `Reference:` is absent/empty in some Taskforce layouts.
- * Supports same-line and next-line values.
+ * Content-based address extraction:
+ * - scan all lines
+ * - keep lines that match address pattern
+ * - if multiple, return the longest
  */
-function extractAddressFromFallbackAnchors(lines: string[]): string {
-  const anchors = [/^Property\s*:/i, /^Service\s+Address\s*:/i, /^Job\s+Address\s*:/i, /^Address\s*:/i];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    for (const anchor of anchors) {
-      const same = new RegExp(`${anchor.source}\\s*(.+)$`, "i").exec(line);
-      if (same) {
-        const raw = (same[1] ?? "").trim();
-        if (raw) return stripReferenceIdPrefix(raw);
-      }
-      if (new RegExp(`${anchor.source}\\s*$`, "i").test(line) && i + 1 < lines.length) {
-        const raw = (lines[i + 1] ?? "").trim();
-        if (raw) return stripReferenceIdPrefix(raw);
-      }
+function extractAddressByPattern(lines: string[]): string {
+  const candidates: string[] = [];
+  for (const rawLine of lines) {
+    const line = stripReferenceIdPrefix(rawLine.trim());
+    if (isAddressCandidate(line)) {
+      candidates.push(line);
     }
   }
-
-  return "";
+  if (candidates.length === 0) return "";
+  candidates.sort((a, b) => b.length - a.length);
+  return candidates[0] ?? "";
 }
 
 /** Invoice number: TF-######## */
@@ -142,7 +144,7 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  const address = (extractAddressFromReference(lines) || extractAddressFromFallbackAnchors(lines)).trim();
+  const address = extractAddressByPattern(lines).trim();
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
@@ -150,7 +152,8 @@ export function parseTaskforceInvoiceFromPdfText(
   if (!address) {
     return {
       ok: false,
-      error: 'Missing address. Expected one of: "Reference:", "Property:", "Service Address:", "Job Address:", or "Address:".'
+      error:
+        'Missing address by pattern detection. Expected a line with street number, street name, suburb, and VIC or postcode.'
     };
   }
   if (!invoice_number) {
