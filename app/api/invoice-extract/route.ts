@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  console.log("API HIT");
   try {
     return await handleInvoiceExtractPost(request);
   } catch (error: unknown) {
