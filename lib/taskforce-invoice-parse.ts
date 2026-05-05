@@ -30,50 +30,73 @@ function stripReferenceIdPrefix(value: string): string {
   return value.replace(/^\s*\d+\s*-\s*/, "").trim();
 }
 
-const STREET_TYPE_RE =
-  /\b(st|street|rd|road|ave|avenue|dr|drive|ln|lane|ct|court|pl|place|cres|crescent|blvd|boulevard|hwy|highway|way|pde|parade|tce|terrace)\b/i;
-const SUBURB_TOKEN_RE = /\b[A-Z]{3,}\b/;
-const VIC_OR_POSTCODE_RE = /\b(VIC\s*\d{4}|VIC|\d{4})\b/i;
+const ADDRESS_LABELS = [/^Service\s+Address\b/i, /^Property\b/i, /^Job\s+Address\b/i, /^Address\b/i];
+const ADDRESS_STOP_LINES = [
+  /^Invoice\b/i,
+  /^Date\b/i,
+  /^Description\b/i,
+  /^Amount\b/i,
+  /^TOTAL\s+AUD\b/i,
+  /^SUBTOTAL\b/i,
+  /^GST\b/i,
+  /^Balance\b/i,
+  /^ABN\b/i,
+  /^Phone\b/i,
+  /^Email\b/i
+];
 
-function hasStreetNumber(line: string): boolean {
-  return /\b\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?\b/.test(line);
-}
-
-function hasStreetNameAndType(line: string): boolean {
-  return STREET_TYPE_RE.test(line);
-}
-
-function hasSuburb(line: string): boolean {
-  const commaUpper = /,\s*[A-Z][A-Z\s'-]{2,}(?:\s+VIC|\s+\d{4}|$)/.test(line);
-  return commaUpper || SUBURB_TOKEN_RE.test(line);
-}
-
-function hasVicOrPostcode(line: string): boolean {
-  return VIC_OR_POSTCODE_RE.test(line);
-}
-
-function isAddressCandidate(line: string): boolean {
-  if (!line || line.length < 8) return false;
-  return hasStreetNumber(line) && hasStreetNameAndType(line) && hasSuburb(line) && hasVicOrPostcode(line);
+function isAddressStopLine(line: string): boolean {
+  return ADDRESS_STOP_LINES.some((re) => re.test(line));
 }
 
 /**
- * Content-based address extraction:
- * - scan all lines
- * - keep lines that match address pattern
- * - if multiple, return the longest
+ * Taskforce address extraction from labeled fields only.
+ * - Look for Service Address / Property / Job Address / Address
+ * - Capture value on same line and subsequent lines until section boundary
+ * - Return raw joined text (no strict postcode/street validation)
  */
-function extractAddressByPattern(lines: string[]): string {
+function extractAddressFromTaskforceLabels(lines: string[]): string {
   const candidates: string[] = [];
-  for (const rawLine of lines) {
-    const line = stripReferenceIdPrefix(rawLine.trim());
-    if (isAddressCandidate(line)) {
-      candidates.push(line);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    for (const label of ADDRESS_LABELS) {
+      if (!label.test(line)) continue;
+
+      const parts: string[] = [];
+      const sameLine = line.replace(label, "").replace(/^\s*[:\-]?\s*/, "").trim();
+      if (sameLine) {
+        parts.push(stripReferenceIdPrefix(sameLine));
+      }
+
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = (lines[j] ?? "").trim();
+        if (!next) break;
+        if (isAddressStopLine(next)) break;
+        if (ADDRESS_LABELS.some((re) => re.test(next))) break;
+        parts.push(stripReferenceIdPrefix(next));
+      }
+
+      const combined = parts.join(" ").replace(/\s+/g, " ").trim();
+      if (combined) candidates.push(combined);
+      break;
     }
   }
+
   if (candidates.length === 0) return "";
   candidates.sort((a, b) => b.length - a.length);
   return candidates[0] ?? "";
+}
+
+function extractFallbackAddressFromFirstNumberLine(lines: string[]): string {
+  for (const line of lines) {
+    const raw = line.trim();
+    if (!raw) continue;
+    if (/\d/.test(raw)) {
+      return stripReferenceIdPrefix(raw);
+    }
+  }
+  return "";
 }
 
 /** Invoice number: TF-######## */
@@ -144,18 +167,14 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  const address = extractAddressByPattern(lines).trim();
+  let address = extractAddressFromTaskforceLabels(lines)?.trim() || "";
+  if (!address) {
+    address = extractFallbackAddressFromFirstNumberLine(lines);
+  }
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
 
-  if (!address) {
-    return {
-      ok: false,
-      error:
-        'Missing address by pattern detection. Expected a line with street number, street name, suburb, and VIC or postcode.'
-    };
-  }
   if (!invoice_number) {
     return { ok: false, error: 'Missing invoice number in format "TF-########".' };
   }
