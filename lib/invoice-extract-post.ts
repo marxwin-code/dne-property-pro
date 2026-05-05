@@ -1,4 +1,4 @@
-import pdfParse from "pdf-parse";
+import pdfParse from "@/lib/pdf-parse-server";
 import { NextResponse } from "next/server";
 import {
   invoiceExtractEnvSnapshot,
