@@ -1,4 +1,4 @@
-import { PDFParse } from "pdf-parse";
+import pdfParse from "pdf-parse";
 import { NextResponse } from "next/server";
 import {
   invoiceExtractEnvSnapshot,
@@ -6,11 +6,7 @@ import {
   type InvoiceExtractInvoiceRow,
   type InvoiceExtractSuccessBody
 } from "@/lib/api-json";
-import {
-  INVOICE_EXTRACT_AIRTABLE_TABLE,
-  INVOICE_NOT_FOUND_TOKEN,
-  INVOICE_NO_MATCH_MESSAGE
-} from "@/lib/invoice-extract-constants";
+import { INVOICE_NOT_FOUND_TOKEN, INVOICE_NO_MATCH_MESSAGE } from "@/lib/invoice-extract-constants";
 import { loadInvoiceExtractRuntimeConfig } from "@/lib/invoice-extract-config";
 import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 import { fetchInvoicePropertyRows } from "@/lib/invoice-extract";
@@ -34,16 +30,12 @@ function isPdfMagic(buffer: Buffer): boolean {
 }
 
 async function pdfBufferToText(buffer: Buffer): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  let parser: InstanceType<typeof PDFParse> | undefined;
   try {
-    parser = new PDFParse({ data: new Uint8Array(buffer) });
-    const textResult = await parser.getText();
-    return { ok: true, text: textResult.text ?? "" };
+    const result = await pdfParse(buffer);
+    return { ok: true, text: result.text ?? "" };
   } catch (e) {
     invoiceExtractLog("error", "pdf_parse_failure", { errorReason: String(e) });
     return { ok: false, error: "PDF parse failed." };
-  } finally {
-    await parser?.destroy().catch(() => {});
   }
 }
 
@@ -148,15 +140,15 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }
 
     console.log("[invoice-extract] loading Airtable properties once", {
-      table: INVOICE_EXTRACT_AIRTABLE_TABLE
+      table: cfg.tableName
     });
     invoiceExtractLog("info", "airtable_fetch_start", {
-      table: INVOICE_EXTRACT_AIRTABLE_TABLE,
+      table: cfg.tableName,
       fields: ["address", "property_id"]
     });
 
     const propertyLoad = await fetchInvoicePropertyRows({
-      tableName: INVOICE_EXTRACT_AIRTABLE_TABLE
+      tableName: cfg.tableName
     });
     if (!propertyLoad.ok) {
       invoiceExtractLog("error", "airtable_load_failed", {

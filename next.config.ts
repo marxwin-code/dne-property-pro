@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["pdf-parse", "exceljs"],
+  serverExternalPackages: ["exceljs"],
   outputFileTracingIncludes: {
     "/api/invoice-extract": ["./lib/invoice-templates/**/*"]
   },
