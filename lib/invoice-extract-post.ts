@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import {
   invoiceExtractEnvSnapshot,
   jsonError,
-  jsonInvoiceExtractSuccess,
   type InvoiceExtractInvoiceRow,
   type InvoiceExtractSuccessBody
 } from "@/lib/api-json";
@@ -35,17 +34,21 @@ function isPdfMagic(buffer: Buffer): boolean {
 }
 
 async function pdfBufferToText(buffer: Buffer): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  let parser: InstanceType<typeof PDFParse> | undefined;
   try {
+    parser = new PDFParse({ data: new Uint8Array(buffer) });
     const textResult = await parser.getText();
     return { ok: true, text: textResult.text ?? "" };
   } catch (e) {
     invoiceExtractLog("error", "pdf_parse_failure", { errorReason: String(e) });
     return { ok: false, error: "PDF parse failed." };
   } finally {
-    await parser.destroy().catch(() => {});
+    await parser?.destroy().catch(() => {});
   }
 }
+
+/** Small JSON payload for client UI when Excel is returned as binary body (avoids huge base64 + JSON limits). */
+export const INVOICE_EXTRACT_META_HEADER = "X-Invoice-Extract-Meta";
 
 function handlerErrorResponse(message: string): NextResponse<{ success: false; error: string }> {
   return NextResponse.json({ success: false, error: message }, { status: 422 });
@@ -255,27 +258,37 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     }));
 
     const filename = `taskforce-weekly-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    const body: InvoiceExtractSuccessBody = {
-      success: true,
-      data: {
-        files_received: filesReceived,
-        invoices_parsed: invoicesParsed,
-        duplicates_removed: duplicatesRemoved,
-        invoice_count: invoices.length,
-        invoices
-      },
-      excel: {
-        content_base64: xlsx.buffer.toString("base64"),
-        filename
-      }
+    const data: InvoiceExtractSuccessBody["data"] = {
+      files_received: filesReceived,
+      invoices_parsed: invoicesParsed,
+      duplicates_removed: duplicatesRemoved,
+      invoice_count: invoices.length,
+      invoices
     };
+
+    const metaForClient = {
+      success: true as const,
+      data,
+      excel: { filename }
+    };
+    const metaB64 = Buffer.from(JSON.stringify(metaForClient), "utf8").toString("base64");
 
     console.log("[invoice-extract] success", {
       filename,
       rows: excelRows.length,
       duplicatesRemoved
     });
-    return jsonInvoiceExtractSuccess(body);
+
+    return new NextResponse(new Uint8Array(xlsx.buffer), {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        [INVOICE_EXTRACT_META_HEADER]: metaB64,
+        "Cache-Control": "no-store"
+      }
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
