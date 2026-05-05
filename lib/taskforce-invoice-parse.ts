@@ -167,7 +167,10 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  const address = (extractAddressFromTaskforceLabels(lines) || extractFallbackAddressFromFirstNumberLine(lines)).trim();
+  let address = extractAddressFromTaskforceLabels(lines)?.trim() || "";
+  if (!address) {
+    address = extractFallbackAddressFromFirstNumberLine(lines);
+  }
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
