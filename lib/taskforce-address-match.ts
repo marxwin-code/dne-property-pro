@@ -5,28 +5,34 @@ function rowUsable(r: InvoicePropertyRow): boolean {
   return Boolean(String(r.property_id ?? "").trim());
 }
 
-/** Single normalization rule for comparison (lowercase, single spaces). */
-function normAddr(s: string): string {
+/**
+ * Normalize to Street + Suburb style:
+ * - lowercase
+ * - drop `VIC 3000` / `VIC`
+ * - commas -> spaces
+ * - collapse spaces
+ */
+export function normalizeAddress(s: string): string {
   return s
+    .toLowerCase()
     .replace(/\u00a0/g, " ")
+    .replace(/vic\s*\d{4}\b/g, "")
+    .replace(/\bvic\b/g, "")
+    .replace(/,\s*/g, " ")
     .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
+    .replace(/\s+/g, " ");
 }
 
 export type TaskforceAddressMatchResult =
   | { ok: true; property_id: string; matched_address: string }
   | { ok: false; error: string };
 
-/**
- * Exact match only: normalized extracted address must equal normalized Airtable `address`.
- */
 export function matchTaskforceAddressToProperty(
   extractedAddress: string,
   propertyRows: InvoicePropertyRow[]
 ): TaskforceAddressMatchResult {
-  const e = normAddr(extractedAddress);
-  if (!e) {
+  const pdfAddr = normalizeAddress(extractedAddress);
+  if (!pdfAddr) {
     return { ok: false, error: "Extracted address was empty." };
   }
 
@@ -34,7 +40,11 @@ export function matchTaskforceAddressToProperty(
     if (!rowUsable(row)) continue;
     const raw = String(row.address ?? "").trim();
     if (!raw) continue;
-    if (normAddr(raw) === e) {
+    const dbAddr = normalizeAddress(raw);
+    if (!dbAddr) continue;
+
+    // PRD rule: PDF full address should include DB Street + Suburb fragment.
+    if (pdfAddr.includes(dbAddr)) {
       return {
         ok: true,
         property_id: String(row.property_id).trim(),
