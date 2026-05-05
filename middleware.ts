@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 /**
  * Production host pairs that should collapse to one canonical host (from NEXT_PUBLIC_SITE_URL / SITE_URL).
  * Mixed www/apex causes cross-origin RSC fetches and Safari/WebKit "access control checks" failures.
+ * `/api/*` is excluded: redirecting POST/fetch (e.g. invoice-extract) across hosts triggers CORS failures.
  */
 const PROD_HOSTS = new Set(["depropertypro.com", "www.depropertypro.com"]);
 
@@ -36,8 +37,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * All paths except Next internals and static assets (same pattern as Next docs).
+     * Pages only: skip /api (host redirects break same-origin POST+fetches), Next internals, static assets.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"
   ]
 };
