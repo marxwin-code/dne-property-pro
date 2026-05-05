@@ -24,7 +24,7 @@ type ApiSuccess = {
     invoice_count: number;
     invoices: InvoiceRow[];
   };
-  excel: { content_base64: string; filename: string };
+  excel: { filename: string; content_base64?: string };
 };
 
 type ApiError = { success: false; error: string };
@@ -107,7 +107,44 @@ export default function InvoiceExtractPage() {
         body: formData
       });
 
-      const j = (await res.json()) as ApiSuccess | ApiError;
+      const ct = res.headers.get("content-type") ?? "";
+
+      if (ct.includes("spreadsheetml") && res.ok) {
+        const metaB64 = res.headers.get("X-Invoice-Extract-Meta");
+        if (metaB64) {
+          try {
+            const bin = atob(metaB64);
+            const u8 = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+            const meta = JSON.parse(new TextDecoder().decode(u8)) as ApiSuccess;
+            if (meta.success) {
+              setSummary(meta.data);
+              setFileName(meta.excel?.filename || "taskforce-weekly.xlsx");
+            }
+          } catch {
+            setFileName("taskforce-weekly.xlsx");
+          }
+        } else {
+          setFileName("taskforce-weekly.xlsx");
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        return;
+      }
+
+      const text = await res.text();
+      let j: ApiSuccess | ApiError;
+      try {
+        j = JSON.parse(text) as ApiSuccess | ApiError;
+      } catch {
+        setError(
+          res.status >= 500
+            ? `${tx.errorGeneric} (HTTP ${res.status})`
+            : `${tx.errorGeneric} — ${text.slice(0, 200)}`
+        );
+        return;
+      }
 
       if (!("success" in j) || j.success === false) {
         const msg = "error" in j && typeof j.error === "string" ? j.error : tx.errorGeneric;
@@ -117,14 +154,16 @@ export default function InvoiceExtractPage() {
 
       setSummary(j.data);
       setFileName(j.excel.filename || "invoice-extract.xlsx");
-      const bin = atob(j.excel.content_base64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      });
-      const url = URL.createObjectURL(blob);
-      setBlobUrl(url);
+      if (j.excel.content_base64) {
+        const bin = atob(j.excel.content_base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+      }
     } catch {
       setError(tx.errorGeneric);
     } finally {

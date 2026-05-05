@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { handleInvoiceExtractPost } from "@/lib/invoice-extract-post";
 
 export const runtime = "nodejs";
@@ -5,5 +6,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  return handleInvoiceExtractPost(request);
+  try {
+    return await handleInvoiceExtractPost(request);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[invoice-extract] route fatal:", message);
+    return NextResponse.json({ success: false, error: message }, { status: 422 });
+  }
 }
