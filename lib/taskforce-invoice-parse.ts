@@ -66,7 +66,7 @@ function extractAddressFromTaskforceLabels(lines: string[]): string {
       const parts: string[] = [];
       const sameLine = line.replace(label, "").replace(/^\s*[:\-]?\s*/, "").trim();
       if (sameLine) {
-        parts.push(stripReferenceIdPrefix(sameLine));
+        parts.push(sameLine);
       }
 
       for (let j = i + 1; j < lines.length; j++) {
@@ -74,7 +74,7 @@ function extractAddressFromTaskforceLabels(lines: string[]): string {
         if (!next) break;
         if (isAddressStopLine(next)) break;
         if (ADDRESS_LABELS.some((re) => re.test(next))) break;
-        parts.push(stripReferenceIdPrefix(next));
+        parts.push(next);
       }
 
       const combined = parts.join(" ").replace(/\s+/g, " ").trim();
@@ -93,7 +93,7 @@ function extractFallbackAddressFromFirstNumberLine(lines: string[]): string {
     const raw = line.trim();
     if (!raw) continue;
     if (/\d/.test(raw)) {
-      return stripReferenceIdPrefix(raw);
+      return raw;
     }
   }
   return "";
@@ -167,10 +167,14 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  let address = extractAddressFromTaskforceLabels(lines)?.trim() || "";
-  if (!address) {
-    address = extractFallbackAddressFromFirstNumberLine(lines);
+  let rawAddress = extractAddressFromTaskforceLabels(lines)?.trim() || "";
+  if (!rawAddress) {
+    rawAddress = extractFallbackAddressFromFirstNumberLine(lines);
   }
+  const cleanedAddress = stripReferenceIdPrefix(rawAddress);
+  console.log("RAW ADDRESS:", rawAddress);
+  console.log("CLEANED ADDRESS:", cleanedAddress);
+  const address = cleanedAddress;
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
