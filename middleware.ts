@@ -18,27 +18,32 @@ function canonicalHostname(): string {
 }
 
 export function middleware(request: NextRequest) {
-  const reqHost = request.headers.get("host")?.split(":")[0]?.toLowerCase() ?? "";
-  if (!PROD_HOSTS.has(reqHost)) {
+  const { pathname } = request.nextUrl;
+  // Skip excluded paths
+  if (pathname === "/login" || pathname.startsWith("/api") || pathname.startsWith("/_next") || /\.[a-zA-Z0-9]+$/.test(pathname)) {
     return NextResponse.next();
   }
 
+  const reqHost = request.headers.get("host");
   const want = canonicalHostname();
+  if (!reqHost) return NextResponse.next();
+
+  // Already on canonical host -> no redirect
   if (reqHost === want) {
     return NextResponse.next();
   }
 
-  const dest = request.nextUrl.clone();
-  dest.hostname = want;
-  dest.protocol = "https:";
-  return NextResponse.redirect(dest, 308);
+  // Host differs -> redirect
+  const url = request.nextUrl.clone();
+  url.hostname = want;
+  return NextResponse.redirect(url);
 }
 
 export const config = {
   matcher: [
     /*
-     * Pages only: skip /api (host redirects break same-origin POST+fetches), Next internals, static assets.
+     * Pages only: skip /login, /api, /_next internals, and common static assets.
      */
-    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"
+    "/((?!login(?:/|$)|api(?:/|$)|_next(?:/|$)|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2|ttf)$).*)"
   ]
 };
