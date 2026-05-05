@@ -31,7 +31,7 @@ function stripReferenceIdPrefix(value: string): string {
 }
 
 /**
- * Address only from a line starting with Reference: (value same line or next line).
+ * Address from a line starting with `Reference:` (same line or next line).
  */
 function extractAddressFromReference(lines: string[]): string {
   for (let i = 0; i < lines.length; i++) {
@@ -46,6 +46,31 @@ function extractAddressFromReference(lines: string[]): string {
       if (raw) return stripReferenceIdPrefix(raw);
     }
   }
+  return "";
+}
+
+/**
+ * Deterministic fallback anchors when `Reference:` is absent/empty in some Taskforce layouts.
+ * Supports same-line and next-line values.
+ */
+function extractAddressFromFallbackAnchors(lines: string[]): string {
+  const anchors = [/^Property\s*:/i, /^Service\s+Address\s*:/i, /^Job\s+Address\s*:/i, /^Address\s*:/i];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    for (const anchor of anchors) {
+      const same = new RegExp(`${anchor.source}\\s*(.+)$`, "i").exec(line);
+      if (same) {
+        const raw = (same[1] ?? "").trim();
+        if (raw) return stripReferenceIdPrefix(raw);
+      }
+      if (new RegExp(`${anchor.source}\\s*$`, "i").test(line) && i + 1 < lines.length) {
+        const raw = (lines[i + 1] ?? "").trim();
+        if (raw) return stripReferenceIdPrefix(raw);
+      }
+    }
+  }
+
   return "";
 }
 
@@ -114,19 +139,19 @@ export function parseTaskforceInvoiceFromPdfText(
   maxChars: number
 ): { ok: true; data: TaskforceParsedInvoice } | { ok: false; error: string } {
   const text = clip(pdfText, maxChars);
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.replace(/\u00a0/g, " ").trim())
-    .filter((l) => l.length > 0);
+  const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  const address = extractAddressFromReference(lines).trim();
+  const address = (extractAddressFromReference(lines) || extractAddressFromFallbackAnchors(lines)).trim();
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
 
   if (!address) {
-    return { ok: false, error: 'Missing or empty "Reference" line for address extraction.' };
+    return {
+      ok: false,
+      error: 'Missing address. Expected one of: "Reference:", "Property:", "Service Address:", "Job Address:", or "Address:".'
+    };
   }
   if (!invoice_number) {
     return { ok: false, error: 'Missing invoice number in format "TF-########".' };
