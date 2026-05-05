@@ -88,6 +88,17 @@ function extractAddressFromTaskforceLabels(lines: string[]): string {
   return candidates[0] ?? "";
 }
 
+function extractFallbackAddressFromFirstNumberLine(lines: string[]): string {
+  for (const line of lines) {
+    const raw = line.trim();
+    if (!raw) continue;
+    if (/\d/.test(raw)) {
+      return stripReferenceIdPrefix(raw);
+    }
+  }
+  return "";
+}
+
 /** Invoice number: TF-######## */
 function extractInvoiceNumber(flat: string): string {
   const m = flat.replace(/\s+/g, " ").match(/\b(TF-\d+)\b/i);
@@ -156,18 +167,11 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  const address = extractAddressFromTaskforceLabels(lines).trim();
+  const address = (extractAddressFromTaskforceLabels(lines) || extractFallbackAddressFromFirstNumberLine(lines)).trim();
   const invoice_number = extractInvoiceNumber(flat);
   const amountRaw = extractTotalAud(lines);
   const description_combined = extractDescriptionCombined(lines);
 
-  if (!address) {
-    return {
-      ok: false,
-      error:
-        'Missing labeled address. Expected one of: "Service Address", "Property", "Job Address", or "Address".'
-    };
-  }
   if (!invoice_number) {
     return { ok: false, error: 'Missing invoice number in format "TF-########".' };
   }
