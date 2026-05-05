@@ -10,7 +10,8 @@ import { INVOICE_NOT_FOUND_TOKEN, INVOICE_NO_MATCH_MESSAGE } from "@/lib/invoice
 import { loadInvoiceExtractRuntimeConfig } from "@/lib/invoice-extract-config";
 import { invoiceExtractLog } from "@/lib/invoice-extract-log";
 import { fetchInvoicePropertyRows } from "@/lib/invoice-extract";
-import { matchTaskforceAddressToProperty } from "@/lib/taskforce-address-match";
+import type { InvoicePropertyRow } from "@/lib/invoice-extract";
+import { matchTaskforceAddressToProperty, normalizeAddress } from "@/lib/taskforce-address-match";
 import { parseTaskforceInvoiceFromPdfText } from "@/lib/taskforce-invoice-parse";
 import type { TaskforceParsedInvoice } from "@/lib/taskforce-invoice-parse";
 import {
@@ -51,6 +52,27 @@ type ParsedInvoiceRow = {
   invoice: TaskforceParsedInvoice;
   matchedPropertyId: string;
 };
+
+function topAttemptedMatches(pdfAddress: string, rows: InvoicePropertyRow[], limit = 3): string[] {
+  const normalizedPdf = normalizeAddress(pdfAddress);
+  const pdfTokens = new Set(normalizedPdf.split(" ").filter(Boolean));
+  const scored: Array<{ address: string; score: number }> = [];
+
+  for (const row of rows) {
+    const raw = String(row.address ?? "").trim();
+    if (!raw) continue;
+    const normalized = normalizeAddress(raw);
+    if (!normalized) continue;
+    const score = normalized
+      .split(" ")
+      .filter(Boolean)
+      .reduce((n, tok) => n + (pdfTokens.has(tok) ? 1 : 0), 0);
+    scored.push({ address: raw, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.address.length - b.address.length);
+  return scored.slice(0, limit).map((x) => x.address);
+}
 
 function toExcelRow(inv: TaskforceParsedInvoice, pid: string): TaskforceWeeklyExcelRow {
   const accountNumber = `${pid}-110-60721`;
@@ -200,9 +222,25 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
 
       const matchedPropertyId = String(match.property_id);
       if (matchedPropertyId === INVOICE_NOT_FOUND_TOKEN) {
+        const normalizedPdf = normalizeAddress(extractedAddress);
+        const dbSample = records
+          .map((r) => normalizeAddress(String(r.address ?? "")))
+          .filter(Boolean)
+          .slice(0, 5);
+        console.log({
+          pdfAddress: extractedAddress,
+          normalizedPdf,
+          dbSample
+        });
         invoiceExtractLog("error", "no_property_match", { fileName, extractedAddress });
         return NextResponse.json(
-          { success: false, error: `${fileName}: ${INVOICE_NO_MATCH_MESSAGE}` },
+          {
+            success: false,
+            error: `${fileName}: ${INVOICE_NO_MATCH_MESSAGE}`,
+            extracted_address: extractedAddress,
+            normalized_address: normalizedPdf,
+            attempted_matches: topAttemptedMatches(extractedAddress, records, 3)
+          },
           { status: 404 }
         );
       }

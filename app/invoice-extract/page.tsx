@@ -27,7 +27,13 @@ type ApiSuccess = {
   excel: { filename: string; content_base64?: string };
 };
 
-type ApiError = { success: false; error: string };
+type ApiError = {
+  success: false;
+  error: string;
+  extracted_address?: string;
+  normalized_address?: string;
+  attempted_matches?: string[];
+};
 
 function getLimitNumbers() {
   const lim = invoiceLimits.limits as {
@@ -148,7 +154,9 @@ export default function InvoiceExtractPage() {
 
       if (!("success" in j) || j.success === false) {
         const msg = "error" in j && typeof j.error === "string" ? j.error : tx.errorGeneric;
-        setError(msg);
+        const extracted =
+          "extracted_address" in j && typeof j.extracted_address === "string" ? j.extracted_address.trim() : "";
+        setError(extracted ? `${msg}\nExtracted: ${extracted}` : msg);
         return;
       }
 
