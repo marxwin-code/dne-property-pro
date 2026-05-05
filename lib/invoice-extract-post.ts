@@ -266,9 +266,19 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
       invoices
     };
 
+    /**
+     * Header must stay small — proxies often cap ~8KB; full `invoices` JSON can exceed that.
+     * Client gets counts only in meta; line items live in the downloaded .xlsx.
+     */
     const metaForClient = {
       success: true as const,
-      data,
+      data: {
+        files_received: data.files_received,
+        invoices_parsed: data.invoices_parsed,
+        duplicates_removed: data.duplicates_removed,
+        invoice_count: data.invoice_count,
+        invoices: [] as InvoiceExtractInvoiceRow[]
+      },
       excel: { filename }
     };
     const metaB64 = Buffer.from(JSON.stringify(metaForClient), "utf8").toString("base64");
@@ -276,7 +286,8 @@ export async function handleInvoiceExtractPost(request: Request): Promise<Respon
     console.log("[invoice-extract] success", {
       filename,
       rows: excelRows.length,
-      duplicatesRemoved
+      duplicatesRemoved,
+      metaHeaderChars: metaB64.length
     });
 
     return new NextResponse(new Uint8Array(xlsx.buffer), {

@@ -226,7 +226,10 @@ export default function InvoiceExtractPage() {
                 <li>Duplicates removed (by invoice #): {summary.duplicates_removed}</li>
                 <li>Rows in Excel: {summary.invoice_count}</li>
               </ul>
-              {summary.invoices.length ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Full line items (invoice #, amounts, addresses) are in the downloaded Excel file.
+              </p>
+              {summary.invoices.length > 0 ? (
                 <div className="mt-4 max-h-48 overflow-y-auto border-t border-stone-200 pt-3 text-xs">
                   <p className="font-semibold text-lux-ink">Invoices</p>
                   <ul className="mt-2 space-y-2">
