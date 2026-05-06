@@ -30,71 +30,36 @@ function stripReferenceIdPrefix(value: string): string {
   return value.replace(/^\s*\d+\s*-\s*/, "").trim();
 }
 
-const ADDRESS_LABELS = [/^Service\s+Address\b/i, /^Property\b/i, /^Job\s+Address\b/i, /^Address\b/i];
-const ADDRESS_STOP_LINES = [
-  /^Invoice\b/i,
-  /^Date\b/i,
-  /^Description\b/i,
-  /^Amount\b/i,
-  /^TOTAL\s+AUD\b/i,
-  /^SUBTOTAL\b/i,
-  /^GST\b/i,
-  /^Balance\b/i,
-  /^ABN\b/i,
-  /^Phone\b/i,
-  /^Email\b/i
-];
-
-function isAddressStopLine(line: string): boolean {
-  return ADDRESS_STOP_LINES.some((re) => re.test(line));
-}
-
-/**
- * Taskforce address extraction from labeled fields only.
- * - Look for Service Address / Property / Job Address / Address
- * - Capture value on same line and subsequent lines until section boundary
- * - Return raw joined text (no strict postcode/street validation)
- */
-function extractAddressFromTaskforceLabels(lines: string[]): string {
-  const candidates: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? "";
-    for (const label of ADDRESS_LABELS) {
-      if (!label.test(line)) continue;
-
-      const parts: string[] = [];
-      const sameLine = line.replace(label, "").replace(/^\s*[:\-]?\s*/, "").trim();
-      if (sameLine) {
-        parts.push(sameLine);
-      }
-
-      for (let j = i + 1; j < lines.length; j++) {
-        const next = (lines[j] ?? "").trim();
-        if (!next) break;
-        if (isAddressStopLine(next)) break;
-        if (ADDRESS_LABELS.some((re) => re.test(next))) break;
-        parts.push(next);
-      }
-
-      const combined = parts.join(" ").replace(/\s+/g, " ").trim();
-      if (combined) candidates.push(combined);
-      break;
-    }
-  }
-
-  if (candidates.length === 0) return "";
-  candidates.sort((a, b) => b.length - a.length);
-  return candidates[0] ?? "";
-}
-
-function extractFallbackAddressFromFirstNumberLine(lines: string[]): string {
+function stripVendorBlock(lines: string[]): string[] {
+  const out: string[] = [];
+  let inVendor = false;
   for (const line of lines) {
-    const raw = line.trim();
-    if (!raw) continue;
-    if (/\d/.test(raw)) {
-      return raw;
+    const t = line.trim();
+    if (!inVendor && /^TASKFORCE\b/i.test(t)) {
+      inVendor = true;
+      continue;
     }
+    if (inVendor) {
+      if (/^ABN\b/i.test(t) || /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(t)) {
+        inVendor = false;
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function extractAddressFromReference(lines: string[]): string {
+  for (let i = 0; i < lines.length; i++) {
+    const line = (lines[i] ?? "").trim();
+    const m = /^Reference\b\s*[:\-]?\s*(.*)$/i.exec(line);
+    if (!m) continue;
+    const sameLine = (m[1] ?? "").trim();
+    if (sameLine) return stripReferenceIdPrefix(sameLine);
+    const nextLine = (lines[i + 1] ?? "").trim();
+    if (nextLine) return stripReferenceIdPrefix(nextLine);
+    return "";
   }
   return "";
 }
@@ -167,10 +132,8 @@ export function parseTaskforceInvoiceFromPdfText(
   const lines = normalizeLines(text);
   const flat = text.replace(/\s+/g, " ");
 
-  let rawAddress = extractAddressFromTaskforceLabels(lines)?.trim() || "";
-  if (!rawAddress) {
-    rawAddress = extractFallbackAddressFromFirstNumberLine(lines);
-  }
+  const nonVendorLines = stripVendorBlock(lines);
+  const rawAddress = extractAddressFromReference(nonVendorLines).trim();
   const cleanedAddress = stripReferenceIdPrefix(rawAddress);
   console.log("RAW ADDRESS:", rawAddress);
   console.log("CLEANED ADDRESS:", cleanedAddress);
