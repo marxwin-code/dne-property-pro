@@ -21,8 +21,7 @@ function clip(text: string, maxChars: number): string {
 function normalizeLines(pdfText: string): string[] {
   return clip(pdfText, pdfText.length)
     .split(/\r?\n/)
-    .map((l) => l.replace(/\u00a0/g, " ").trim())
-    .filter((l) => l.length > 0);
+    .map((l) => l.replace(/\u00a0/g, " ").trim());
 }
 
 /** Strip optional Taskforce reference id prefix: "208168 - " */
@@ -51,15 +50,25 @@ function stripVendorBlock(lines: string[]): string[] {
 }
 
 function extractAddressFromReference(lines: string[]): string {
+  const stopLine = (line: string): boolean =>
+    !line || /^ABN\b/i.test(line) || /^Invoice\b/i.test(line) || /^Email\b/i.test(line);
+
   for (let i = 0; i < lines.length; i++) {
     const line = (lines[i] ?? "").trim();
     const m = /^Reference\b\s*[:\-]?\s*(.*)$/i.exec(line);
     if (!m) continue;
-    const sameLine = (m[1] ?? "").trim();
-    if (sameLine) return stripReferenceIdPrefix(sameLine);
-    const nextLine = (lines[i + 1] ?? "").trim();
-    if (nextLine) return stripReferenceIdPrefix(nextLine);
-    return "";
+    const parts: string[] = [];
+    const sameLine = stripReferenceIdPrefix((m[1] ?? "").trim());
+    if (sameLine) parts.push(sameLine);
+
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = (lines[j] ?? "").trim();
+      if (stopLine(nextLine)) break;
+      if (/^[A-Za-z][A-Za-z /_-]*:\s*/.test(nextLine)) break;
+      parts.push(stripReferenceIdPrefix(nextLine));
+    }
+
+    return parts.join(" ").replace(/\s+/g, " ").trim();
   }
   return "";
 }
